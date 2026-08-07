@@ -1,0 +1,6 @@
+@Br.DollarQuotation.API_HostAddress = http://localhost:5171
+
+GET {{Br.DollarQuotation.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

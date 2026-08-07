@@ -1,0 +1,25 @@
+# Local configuration / secrets
+appsettings.Development.json
+appsettings.Local.json
+
+# Environment files
+.env
+.env.*
+
+# Visual Studio
+.vs/
+
+# Build
+bin/
+obj/
+
+# Visual Studio user files
+*.csproj.user
+*.user
+
+# Temporary / backup files
+*.tmp
+*.bak
+*.Backup
+*.Backup.*
+*Backup*.tmp
