@@ -10,13 +10,32 @@ on:
       - main
 
 jobs:
-
   build-and-test:
     name: Build and Test Backend
     runs-on: ubuntu-latest
 
-    steps:
+    services:
+      postgres:
+        image: postgres:16
 
+        env:
+          POSTGRES_DB: dollar_quotation_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd="pg_isready -U postgres -d dollar_quotation_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      TEST_DB_CONNECTION_STRING: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -30,6 +49,21 @@ jobs:
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d dollar_quotation_test; then
+              echo "PostgreSQL is ready."
+              exit 0
+            fi
+
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+          echo "PostgreSQL did not become ready."
+          exit 1
 
       - name: Run tests
         run: dotnet test --configuration Release --no-build --verbosity normal
