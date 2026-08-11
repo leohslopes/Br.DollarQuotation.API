@@ -33,6 +33,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Br.DollarQuotation.Worker",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Br.DollarQuotation.Tests", "Br.DollarQuotation.Tests\Br.DollarQuotation.Tests.csproj", "{C57DF472-6EA7-417E-B497-E6601BE27828}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3.4- Messaging", "3.4- Messaging", "{E02F7D2C-52CA-4289-A459-ADEE9C069E10}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Br.DollarQuotation.Messaging", "Br.DollarQuotation.Messaging\Br.DollarQuotation.Messaging.csproj", "{D95BFF38-5E68-44A3-B986-A48B609066E3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +71,10 @@ Global
 		{C57DF472-6EA7-417E-B497-E6601BE27828}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C57DF472-6EA7-417E-B497-E6601BE27828}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C57DF472-6EA7-417E-B497-E6601BE27828}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D95BFF38-5E68-44A3-B986-A48B609066E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D95BFF38-5E68-44A3-B986-A48B609066E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D95BFF38-5E68-44A3-B986-A48B609066E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D95BFF38-5E68-44A3-B986-A48B609066E3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +90,8 @@ Global
 		{77C76D7E-2821-4D61-B91A-9DEB00A73B89} = {245736A0-F870-4B23-9499-AA9A17F8CAD5}
 		{944FE18F-A1BD-4E2E-B0A4-3CF035063C14} = {77C76D7E-2821-4D61-B91A-9DEB00A73B89}
 		{C57DF472-6EA7-417E-B497-E6601BE27828} = {0DDCAD09-D03A-4B8A-86AF-7F52CFE38D76}
+		{E02F7D2C-52CA-4289-A459-ADEE9C069E10} = {245736A0-F870-4B23-9499-AA9A17F8CAD5}
+		{D95BFF38-5E68-44A3-B986-A48B609066E3} = {E02F7D2C-52CA-4289-A459-ADEE9C069E10}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {585B1C61-72AA-47EB-9AD7-C8119E8E650C}

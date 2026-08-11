@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Br.DollarQuotation.Application\Br.DollarQuotation.Application.csproj" />
     <ProjectReference Include="..\Br.DollarQuotation.CrossCutting\Br.DollarQuotation.CrossCutting.csproj" />
+    <ProjectReference Include="..\Br.DollarQuotation.Messaging\Br.DollarQuotation.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

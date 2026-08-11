@@ -1,0 +1,45 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+WORKDIR /src
+
+COPY . .
+
+RUN dotnet restore ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj
+
+RUN dotnet publish ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
+
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+
+USER root
+
+# =============================
+# CERTIFICADOS
+# =============================
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ./certs/avast-root.crt \
+    /usr/local/share/ca-certificates/avast-root.crt
+
+RUN update-ca-certificates
+
+
+# =============================
+# APLICAÇÃO
+# =============================
+
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080
+
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "Br.DollarQuotation.API.dll"]

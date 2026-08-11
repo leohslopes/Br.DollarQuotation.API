@@ -87,6 +87,107 @@ namespace Br.DollarQuotation.Repository.Migrations
                     b.ToTable("currency_quotations", (string)null);
                 });
 
+            modelBuilder.Entity("Br.DollarQuotation.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_password_reset_tokens_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_password_reset_tokens_user_id");
+
+                    b.HasIndex("UserId", "ExpiresAt", "UsedAt")
+                        .HasDatabaseName("ix_password_reset_tokens_user_status");
+
+                    b.ToTable("password_reset_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Br.DollarQuotation.Domain.Entities.QuotationAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Condition")
+                        .HasColumnType("integer")
+                        .HasColumnName("condition");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CurrencyPair")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("currency_pair");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<decimal>("TargetPrice")
+                        .HasPrecision(20, 8)
+                        .HasColumnType("numeric(20,8)")
+                        .HasColumnName("target_price");
+
+                    b.Property<DateTime?>("TriggeredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("triggered_at");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrencyPair")
+                        .HasDatabaseName("ix_quotation_alerts_currency_pair");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_quotation_alerts_is_active");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_quotation_alerts_user_id");
+
+                    b.HasIndex("UserId", "CurrencyPair", "IsActive")
+                        .HasDatabaseName("ix_quotation_alerts_user_pair_active");
+
+                    b.ToTable("quotation_alerts", (string)null);
+                });
+
             modelBuilder.Entity("Br.DollarQuotation.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -141,6 +242,24 @@ namespace Br.DollarQuotation.Repository.Migrations
                         .HasDatabaseName("ux_users_email");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Br.DollarQuotation.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.HasOne("Br.DollarQuotation.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Br.DollarQuotation.Domain.Entities.QuotationAlert", b =>
+                {
+                    b.HasOne("Br.DollarQuotation.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

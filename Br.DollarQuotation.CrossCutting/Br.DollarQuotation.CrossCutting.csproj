@@ -19,6 +19,7 @@
     <ProjectReference Include="..\Br.DollarQuotation.Application\Br.DollarQuotation.Application.csproj" />
     <ProjectReference Include="..\Br.DollarQuotation.Domain\Br.DollarQuotation.Domain.csproj" />
     <ProjectReference Include="..\Br.DollarQuotation.Repository\Br.DollarQuotation.Repository.csproj" />
+    <ProjectReference Include="..\Br.DollarQuotation.Messaging\Br.DollarQuotation.Messaging.csproj" />
   </ItemGroup>
 
 </Project>

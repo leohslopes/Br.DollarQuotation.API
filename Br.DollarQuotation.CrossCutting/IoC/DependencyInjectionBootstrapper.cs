@@ -2,6 +2,10 @@
 using Br.DollarQuotation.Application.Services;
 using Br.DollarQuotation.Domain.Interfaces.Repositories;
 using Br.DollarQuotation.Domain.Interfaces.Services;
+using Br.DollarQuotation.Messaging.Configurations;
+using Br.DollarQuotation.Messaging.Consumers;
+using Br.DollarQuotation.Messaging.Interfaces;
+using Br.DollarQuotation.Messaging.Publishers;
 using Br.DollarQuotation.Repository.Configurations;
 using Br.DollarQuotation.Repository.Context;
 using Br.DollarQuotation.Repository.ExternalServices.AwesomeApi;
@@ -23,7 +27,8 @@ public static class DependencyInjectionBootstrapper
         RegisterApplicationServices(services);
         RegisterInfrastructureServices(services);
         RegisterExternalServices(services, configuration);
-        
+        RegisterMessaging(services, configuration);
+
         return services;
     }
 
@@ -55,17 +60,21 @@ public static class DependencyInjectionBootstrapper
     {
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICurrencyQuotationRepository, CurrencyQuotationRepository>();
+        services.AddScoped<IQuotationAlertRepository, QuotationAlertRepository>();
+        services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
     }
 
     private static void RegisterApplicationServices(IServiceCollection services)
     {
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ICurrencyQuotationService, CurrencyQuotationService>();
+        services.AddScoped<IQuotationAlertService, QuotationAlertService>();
     }
 
     private static void RegisterInfrastructureServices(IServiceCollection services)
     {
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IEmailService, EmailService>();
     }
 
     private static void RegisterExternalServices(IServiceCollection services, IConfiguration configuration)
@@ -85,6 +94,9 @@ public static class DependencyInjectionBootstrapper
                 httpClient.BaseAddress = new Uri(options.BaseUrl);
                 httpClient.Timeout = TimeSpan.FromSeconds(15);
             });
+
+        services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
     }
 
     private static void RegisterJwtOptions(IServiceCollection services, IConfiguration configuration)
@@ -119,5 +131,17 @@ public static class DependencyInjectionBootstrapper
         {
             throw new InvalidOperationException("O tempo de expiração do JWT deve ser maior que zero.");
         }
+    }
+
+    private static void RegisterMessaging(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<RabbitMqOptions>(
+            configuration.GetSection(
+                RabbitMqOptions.SectionName
+            )
+        );
+
+        services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
+        services.AddSingleton<IMessageConsumer, RabbitMqConsumer>();
     }
 }

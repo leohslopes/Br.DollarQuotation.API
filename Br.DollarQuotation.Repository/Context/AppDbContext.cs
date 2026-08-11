@@ -1,16 +1,11 @@
 ﻿using Br.DollarQuotation.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Br.DollarQuotation.Repository.Context
 {
     public sealed class AppDbContext : DbContext
     {
-        public AppDbContext( DbContextOptions<AppDbContext> options) : base(options)
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
 
         }
@@ -19,12 +14,15 @@ namespace Br.DollarQuotation.Repository.Context
 
         public DbSet<CurrencyQuotation> CurrencyQuotations => Set<CurrencyQuotation>();
 
-        protected override void OnModelCreating(
-            ModelBuilder modelBuilder)
+        public DbSet<QuotationAlert> QuotationAlerts => Set<QuotationAlert>();
+
+        public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+            modelBuilder.ApplyConfigurationsFromAssembly( typeof(AppDbContext).Assembly);
         }
     }
 }

@@ -1,9 +1,9 @@
-﻿using Br.DollarQuotation.Application.Interfaces.Services;
+﻿using Br.DollarQuotation.API.Services;
+using Br.DollarQuotation.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Moq;
 
 namespace Br.DollarQuotation.Tests.Integration.Infrastructure;
@@ -11,45 +11,137 @@ namespace Br.DollarQuotation.Tests.Integration.Infrastructure;
 public sealed class DollarQuotationWebApplicationFactory
     : WebApplicationFactory<Program>
 {
-    public Mock<IAuthService> AuthServiceMock { get; } = new();
+    public Mock<IAuthService> AuthServiceMock { get; } =
+        new();
 
     protected override void ConfigureWebHost(
         IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(
+            "Testing"
+        );
 
-        builder.ConfigureAppConfiguration(
-            (_, configuration) =>
+        // =============================
+        // CONFIGURAÇÕES DE TESTE
+        // =============================
+
+        builder.UseSetting(
+            "ConnectionStrings:DefaultConnection",
+            "Host=localhost;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
+        );
+
+        builder.UseSetting(
+            "Jwt:SecretKey",
+            "BrDollarQuotation@TestJwtKey#2026!123456789"
+        );
+
+        builder.UseSetting(
+            "Jwt:Issuer",
+            "Br.DollarQuotation.Tests"
+        );
+
+        builder.UseSetting(
+            "Jwt:Audience",
+            "Br.DollarQuotation.Tests"
+        );
+
+        builder.UseSetting(
+            "Jwt:ExpirationInMinutes",
+            "60"
+        );
+
+        // RabbitMQ precisa existir na configuração
+        // porque RegisterDependencies lê RabbitMqOptions.
+
+        builder.UseSetting(
+            "RabbitMq:HostName",
+            "localhost"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:Port",
+            "5672"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:UserName",
+            "guest"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:Password",
+            "guest"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:VirtualHost",
+            "/"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:ExchangeName",
+            "dollarquotation.exchange.test"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:QuotationQueueName",
+            "dollarquotation.quotation.queue.test"
+        );
+
+        builder.UseSetting(
+            "RabbitMq:QuotationRoutingKey",
+            "quotation.updated"
+        );
+
+        // =============================
+        // SERVIÇOS DE TESTE
+        // =============================
+
+        builder.ConfigureServices(
+            services =>
             {
-                var settings =
-                    new Dictionary<string, string?>
-                    {
-                        ["ConnectionStrings:DefaultConnection"] =
-                            "Host=localhost;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres",
+                // Remove o AuthService real.
 
-                        ["Jwt:SecretKey"] =
-                            "BrDollarQuotation@TestJwtKey#2026!123456789",
+                var authServiceDescriptor =
+                    services.FirstOrDefault(
+                        descriptor =>
+                            descriptor.ServiceType ==
+                            typeof(IAuthService)
+                    );
 
-                        ["Jwt:Issuer"] =
-                            "Br.DollarQuotation.Tests",
+                if (authServiceDescriptor is not null)
+                {
+                    services.Remove(
+                        authServiceDescriptor
+                    );
+                }
 
-                        ["Jwt:Audience"] =
-                            "Br.DollarQuotation.Tests",
+                services.AddScoped(
+                    _ => AuthServiceMock.Object
+                );
 
-                        ["Jwt:ExpirationInMinutes"] =
-                            "60"
-                    };
+                // =========================
+                // DESABILITAR CONSUMER
+                // =========================
+                // O teste de Auth não deve depender
+                // de RabbitMQ estar disponível.
 
-                configuration.AddInMemoryCollection(
-                    settings);
-            });
+                var consumerDescriptor =
+                    services.FirstOrDefault(
+                        descriptor =>
+                            descriptor.ServiceType ==
+                                typeof(IHostedService) &&
+                            descriptor.ImplementationType ==
+                                typeof(QuotationUpdatedConsumerWorker)
+                    );
 
-        builder.ConfigureServices(services =>
-        {
-            services.RemoveAll<IAuthService>();
-
-            services.AddScoped(
-                _ => AuthServiceMock.Object);
-        });
+                if (consumerDescriptor is not null)
+                {
+                    services.Remove(
+                        consumerDescriptor
+                    );
+                }
+            }
+        );
     }
 }
