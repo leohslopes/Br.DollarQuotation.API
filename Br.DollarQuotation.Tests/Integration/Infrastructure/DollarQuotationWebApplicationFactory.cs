@@ -18,80 +18,80 @@ public sealed class DollarQuotationWebApplicationFactory
         IWebHostBuilder builder)
     {
         builder.UseEnvironment(
-            "Testing"
-        );
+            "Testing");
 
         // =============================
         // CONFIGURAÇÕES DE TESTE
         // =============================
 
+        var testConnectionString =
+            Environment.GetEnvironmentVariable(
+                "TEST_DB_CONNECTION_STRING")
+            ??
+            "Host=localhost;" +
+            "Port=5432;" +
+            "Database=dollar_quotation_test;" +
+            "Username=postgres;" +
+            "Password=123456";
+
         builder.UseSetting(
             "ConnectionStrings:DefaultConnection",
-            "Host=localhost;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
-        );
+            testConnectionString);
 
         builder.UseSetting(
             "Jwt:SecretKey",
-            "BrDollarQuotation@TestJwtKey#2026!123456789"
-        );
+            "BrDollarQuotation@TestJwtKey#2026!123456789");
 
         builder.UseSetting(
             "Jwt:Issuer",
-            "Br.DollarQuotation.Tests"
-        );
+            "Br.DollarQuotation.Tests");
 
         builder.UseSetting(
             "Jwt:Audience",
-            "Br.DollarQuotation.Tests"
-        );
+            "Br.DollarQuotation.Tests");
 
         builder.UseSetting(
             "Jwt:ExpirationInMinutes",
-            "60"
-        );
+            "60");
 
-        // RabbitMQ precisa existir na configuração
-        // porque RegisterDependencies lê RabbitMqOptions.
+        // =============================
+        // RABBITMQ
+        // =============================
+        // As configurações precisam existir
+        // porque RegisterDependencies lê
+        // RabbitMqOptions durante a inicialização.
 
         builder.UseSetting(
             "RabbitMq:HostName",
-            "localhost"
-        );
+            "localhost");
 
         builder.UseSetting(
             "RabbitMq:Port",
-            "5672"
-        );
+            "5672");
 
         builder.UseSetting(
             "RabbitMq:UserName",
-            "guest"
-        );
+            "guest");
 
         builder.UseSetting(
             "RabbitMq:Password",
-            "guest"
-        );
+            "guest");
 
         builder.UseSetting(
             "RabbitMq:VirtualHost",
-            "/"
-        );
+            "/");
 
         builder.UseSetting(
             "RabbitMq:ExchangeName",
-            "dollarquotation.exchange.test"
-        );
+            "dollarquotation.exchange.test");
 
         builder.UseSetting(
             "RabbitMq:QuotationQueueName",
-            "dollarquotation.quotation.queue.test"
-        );
+            "dollarquotation.quotation.queue.test");
 
         builder.UseSetting(
             "RabbitMq:QuotationRoutingKey",
-            "quotation.updated"
-        );
+            "quotation.updated");
 
         // =============================
         // SERVIÇOS DE TESTE
@@ -100,31 +100,33 @@ public sealed class DollarQuotationWebApplicationFactory
         builder.ConfigureServices(
             services =>
             {
-                // Remove o AuthService real.
+                // =========================
+                // AUTH SERVICE
+                // =========================
+                // Os testes do controller usam
+                // um mock para não depender das
+                // regras internas do AuthService.
 
                 var authServiceDescriptor =
                     services.FirstOrDefault(
                         descriptor =>
                             descriptor.ServiceType ==
-                            typeof(IAuthService)
-                    );
+                            typeof(IAuthService));
 
                 if (authServiceDescriptor is not null)
                 {
                     services.Remove(
-                        authServiceDescriptor
-                    );
+                        authServiceDescriptor);
                 }
 
                 services.AddScoped(
-                    _ => AuthServiceMock.Object
-                );
+                    _ => AuthServiceMock.Object);
 
                 // =========================
                 // DESABILITAR CONSUMER
                 // =========================
-                // O teste de Auth não deve depender
-                // de RabbitMQ estar disponível.
+                // O teste de Auth não deve
+                // depender de RabbitMQ.
 
                 var consumerDescriptor =
                     services.FirstOrDefault(
@@ -132,16 +134,14 @@ public sealed class DollarQuotationWebApplicationFactory
                             descriptor.ServiceType ==
                                 typeof(IHostedService) &&
                             descriptor.ImplementationType ==
-                                typeof(QuotationUpdatedConsumerWorker)
-                    );
+                                typeof(
+                                    QuotationUpdatedConsumerWorker));
 
                 if (consumerDescriptor is not null)
                 {
                     services.Remove(
-                        consumerDescriptor
-                    );
+                        consumerDescriptor);
                 }
-            }
-        );
+            });
     }
 }

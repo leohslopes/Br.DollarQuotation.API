@@ -5,11 +5,14 @@ using Br.DollarQuotation.API.Services;
 using Br.DollarQuotation.API.Services.Interfaces;
 using Br.DollarQuotation.CrossCutting.IoC;
 using Br.DollarQuotation.Repository.Configurations;
+using Br.DollarQuotation.Repository.Context;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -311,8 +314,34 @@ builder.Services.AddCors(
             });
     });
 
+// =============================
+// DATA PROTECTION
+// =============================
+
+builder.Services
+    .AddDataProtection()
+    .SetApplicationName(
+        "Br.DollarQuotation.API")
+    .PersistKeysToFileSystem(
+        new DirectoryInfo(
+            "/app/data-protection-keys"));
+
 var app =
     builder.Build();
+
+// =============================
+// DATABASE MIGRATIONS
+// =============================
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext =
+        scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+    await dbContext.Database.MigrateAsync();
+}
+
 
 // =============================
 // LOGS E EXCEÇÕES

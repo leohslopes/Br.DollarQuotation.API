@@ -1,45 +1,53 @@
+# ============================================================
+# STAGE 1 - BUILD
+# ============================================================
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
 WORKDIR /src
 
+# Copia toda a solução
 COPY . .
 
+# Restaura as dependências da API
 RUN dotnet restore ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj
 
+# Publica a aplicação
 RUN dotnet publish ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
 
 
+# ============================================================
+# STAGE 2 - RUNTIME
+# ============================================================
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 
 USER root
 
-# =============================
-# CERTIFICADOS
-# =============================
-
+# Instala certificados e wget.
+# O wget é utilizado pelo healthcheck definido no docker-compose.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
     && rm -rf /var/lib/apt/lists/*
 
+# Adiciona o certificado raiz do Avast.
+# Necessário no ambiente local quando o Avast realiza inspeção SSL/TLS.
 COPY ./certs/avast-root.crt \
     /usr/local/share/ca-certificates/avast-root.crt
 
+# Atualiza os certificados confiáveis do container
 RUN update-ca-certificates
-
-
-# =============================
-# APLICAÇÃO
-# =============================
 
 WORKDIR /app
 
+# Copia os arquivos publicados
 COPY --from=build /app/publish .
 
+# API escuta na porta 8080 dentro do container
 ENV ASPNETCORE_URLS=http://+:8080
 
 EXPOSE 8080
 
+# Inicializa a API
 ENTRYPOINT ["dotnet", "Br.DollarQuotation.API.dll"]

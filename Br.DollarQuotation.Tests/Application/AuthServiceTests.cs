@@ -14,30 +14,34 @@ namespace Br.DollarQuotation.Tests.Application;
 public sealed class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
+
     private readonly JwtOptions _jwtOptions;
+    private readonly PasswordResetOptions _passwordResetOptions;
 
     public AuthServiceTests()
     {
-        _userRepositoryMock =
-            new Mock<IUserRepository>();
-
-        _passwordHasherMock =
-            new Mock<IPasswordHasher>();
-
-        _tokenServiceMock =
-            new Mock<ITokenService>();
+        _userRepositoryMock = new Mock<IUserRepository>();
+        _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
+        _passwordHasherMock = new Mock<IPasswordHasher>();
+        _tokenServiceMock = new Mock<ITokenService>();
+        _emailServiceMock = new Mock<IEmailService>();
 
         _jwtOptions = new JwtOptions
         {
-            SecretKey =
-                "BrDollarQuotation@TestJwtKey#2026!123456789",
-            Issuer =
-                "Br.DollarQuotation.Tests",
-            Audience =
-                "Br.DollarQuotation.Tests",
+            SecretKey = "TEST_SECRET_KEY_123456789012345678901234567890",
+            Issuer = "Br.DollarQuotation.Tests",
+            Audience = "Br.DollarQuotation.Tests",
             ExpirationInMinutes = 60
+        };
+
+        _passwordResetOptions = new PasswordResetOptions
+        {
+            TokenExpirationInMinutes = 30,
+            FrontendResetPasswordUrl = "http://localhost:4200/reset-password"
         };
     }
 
@@ -413,9 +417,12 @@ public sealed class AuthServiceTests
     {
         return new AuthService(
             _userRepositoryMock.Object,
+            _passwordResetTokenRepositoryMock.Object,
             _passwordHasherMock.Object,
             _tokenServiceMock.Object,
-            Options.Create(_jwtOptions));
+            _emailServiceMock.Object,
+            Options.Create(_jwtOptions),
+            Options.Create(_passwordResetOptions));
     }
 
     private static User CreateUser()
