@@ -1,6 +1,8 @@
 ﻿using Br.DollarQuotation.API.Services.Interfaces;
 using Br.DollarQuotation.Domain.Entities;
+using Br.DollarQuotation.Domain.Enums;
 using Br.DollarQuotation.Domain.Interfaces.Repositories;
+using Br.DollarQuotation.Domain.Interfaces.Services;
 using Br.DollarQuotation.Messaging.Configurations;
 using Br.DollarQuotation.Messaging.Contracts;
 using Br.DollarQuotation.Messaging.Interfaces;
@@ -8,7 +10,8 @@ using Microsoft.Extensions.Options;
 
 namespace Br.DollarQuotation.API.Services;
 
-public sealed class QuotationUpdatedConsumerWorker : BackgroundService
+public sealed class QuotationUpdatedConsumerWorker
+    : BackgroundService
 {
     private readonly IMessageConsumer _messageConsumer;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -21,10 +24,17 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
         IOptions<RabbitMqOptions> rabbitMqOptions,
         ILogger<QuotationUpdatedConsumerWorker> logger)
     {
-        _messageConsumer = messageConsumer;
-        _scopeFactory = scopeFactory;
-        _rabbitMqOptions = rabbitMqOptions.Value;
-        _logger = logger;
+        _messageConsumer =
+            messageConsumer;
+
+        _scopeFactory =
+            scopeFactory;
+
+        _rabbitMqOptions =
+            rabbitMqOptions.Value;
+
+        _logger =
+            logger;
     }
 
     protected override async Task ExecuteAsync(
@@ -36,31 +46,28 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
             "Iniciando consumer de atualização de cotações. " +
             "Queue: {QueueName} | RoutingKey: {RoutingKey}.",
             _rabbitMqOptions.QuotationQueueName,
-            _rabbitMqOptions.QuotationRoutingKey
-        );
+            _rabbitMqOptions.QuotationRoutingKey);
 
         try
         {
-            await _messageConsumer.ConsumeAsync<QuotationUpdatedMessage>(
-                _rabbitMqOptions.QuotationQueueName,
-                _rabbitMqOptions.QuotationRoutingKey,
-                ProcessMessageAsync,
-                stoppingToken
-            );
+            await _messageConsumer
+                .ConsumeAsync<QuotationUpdatedMessage>(
+                    _rabbitMqOptions.QuotationQueueName,
+                    _rabbitMqOptions.QuotationRoutingKey,
+                    ProcessMessageAsync,
+                    stoppingToken);
         }
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation(
-                "Consumer de atualização de cotações finalizado."
-            );
+                "Consumer de atualização de cotações finalizado.");
         }
         catch (Exception exception)
         {
             _logger.LogCritical(
                 exception,
-                "Erro crítico no consumer de atualização de cotações."
-            );
+                "Erro crítico no consumer de atualização de cotações.");
 
             throw;
         }
@@ -75,32 +82,30 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
             "{CurrencyPair} | Compra: {BidPrice} | Venda: {AskPrice}.",
             message.CurrencyPair,
             message.BidPrice,
-            message.AskPrice
-        );
+            message.AskPrice);
 
         await using var scope =
             _scopeFactory.CreateAsyncScope();
 
         var notificationService =
             scope.ServiceProvider
-                .GetRequiredService<IQuotationNotificationService>();
+                .GetRequiredService<
+                    IQuotationNotificationService>();
 
         await EvaluateQuotationAlertsAsync(
             scope.ServiceProvider,
             notificationService,
             message,
-            cancellationToken
-        );
+            cancellationToken);
 
-        await notificationService.NotifyQuotationUpdatedAsync(
-            message,
-            cancellationToken
-        );
+        await notificationService
+            .NotifyQuotationUpdatedAsync(
+                message,
+                cancellationToken);
 
         _logger.LogInformation(
             "Cotação {CurrencyPair} encaminhada para o SignalR.",
-            message.CurrencyPair
-        );
+            message.CurrencyPair);
     }
 
     private async Task EvaluateQuotationAlertsAsync(
@@ -110,23 +115,34 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
         CancellationToken cancellationToken)
     {
         var quotationAlertRepository =
-            serviceProvider.GetRequiredService<IQuotationAlertRepository>();
+            serviceProvider
+                .GetRequiredService<
+                    IQuotationAlertRepository>();
+
+        var userRepository =
+            serviceProvider
+                .GetRequiredService<
+                    IUserRepository>();
+
+        var emailService =
+            serviceProvider
+                .GetRequiredService<
+                    IEmailService>();
 
         var currencyPairCode =
             $"{message.BaseCurrency}-{message.QuoteCurrency}";
 
         var alerts =
-            await quotationAlertRepository.GetActiveByCurrencyPairAsync(
-                currencyPairCode,
-                cancellationToken
-            );
+            await quotationAlertRepository
+                .GetActiveByCurrencyPairAsync(
+                    currencyPairCode,
+                    cancellationToken);
 
         if (alerts.Count == 0)
         {
             _logger.LogInformation(
                 "Nenhum alerta ativo encontrado para {CurrencyPair}.",
-                currencyPairCode
-            );
+                currencyPairCode);
 
             return;
         }
@@ -134,8 +150,7 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
         _logger.LogInformation(
             "{AlertCount} alerta(s) ativo(s) encontrado(s) para {CurrencyPair}.",
             alerts.Count,
-            currencyPairCode
-        );
+            currencyPairCode);
 
         var triggeredAlerts =
             new List<QuotationAlert>();
@@ -144,8 +159,7 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
         {
             var shouldTrigger =
                 alert.ShouldTrigger(
-                    message.BidPrice
-                );
+                    message.BidPrice);
 
             if (!shouldTrigger)
             {
@@ -159,8 +173,7 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
                     currencyPairCode,
                     message.BidPrice,
                     alert.TargetPrice,
-                    alert.Condition
-                );
+                    alert.Condition);
 
                 continue;
             }
@@ -168,8 +181,7 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
             alert.MarkAsTriggered();
 
             triggeredAlerts.Add(
-                alert
-            );
+                alert);
 
             _logger.LogInformation(
                 "Alerta {AlertId} DISPARADO. " +
@@ -183,8 +195,7 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
                 currencyPairCode,
                 message.BidPrice,
                 alert.TargetPrice,
-                alert.Condition
-            );
+                alert.Condition);
         }
 
         if (triggeredAlerts.Count == 0)
@@ -192,47 +203,142 @@ public sealed class QuotationUpdatedConsumerWorker : BackgroundService
             return;
         }
 
-        await quotationAlertRepository.SaveChangesAsync(
-            cancellationToken
-        );
+        await quotationAlertRepository
+            .SaveChangesAsync(
+                cancellationToken);
 
         _logger.LogInformation(
             "{TriggeredCount} alerta(s) disparado(s) e persistido(s) para {CurrencyPair}.",
             triggeredAlerts.Count,
-            currencyPairCode
-        );
+            currencyPairCode);
 
         foreach (var alert in triggeredAlerts)
         {
-            await notificationService.NotifyQuotationAlertTriggeredAsync(
-                alert,
-                message.BidPrice,
-                cancellationToken
-            );
+            await notificationService
+                .NotifyQuotationAlertTriggeredAsync(
+                    alert,
+                    message.BidPrice,
+                    cancellationToken);
 
             _logger.LogInformation(
                 "Alerta {AlertId} encaminhado para o SignalR.",
-                alert.Id
-            );
+                alert.Id);
+
+            await SendQuotationAlertEmailAsync(
+                userRepository,
+                emailService,
+                alert,
+                currencyPairCode,
+                message.BidPrice,
+                cancellationToken);
         }
+    }
+
+    private async Task SendQuotationAlertEmailAsync(
+        IUserRepository userRepository,
+        IEmailService emailService,
+        QuotationAlert alert,
+        string currencyPair,
+        decimal currentPrice,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var user =
+                await userRepository
+                    .GetByIdAsync(
+                        alert.UserId,
+                        cancellationToken);
+
+            if (user is null)
+            {
+                _logger.LogWarning(
+                    "Não foi possível enviar o e-mail do alerta {AlertId}. " +
+                    "Usuário {UserId} não encontrado.",
+                    alert.Id,
+                    alert.UserId);
+
+                return;
+            }
+
+            if (!user.IsActive)
+            {
+                _logger.LogWarning(
+                    "Não foi possível enviar o e-mail do alerta {AlertId}. " +
+                    "Usuário {UserId} está inativo.",
+                    alert.Id,
+                    alert.UserId);
+
+                return;
+            }
+
+            var conditionDescription =
+                GetConditionDescription(
+                    alert.Condition);
+
+            await emailService
+                .SendQuotationAlertTriggeredAsync(
+                    user.Email.Value,
+                    user.Name,
+                    currencyPair,
+                    currentPrice,
+                    alert.TargetPrice,
+                    conditionDescription,
+                    cancellationToken);
+
+            _logger.LogInformation(
+                "E-mail do alerta {AlertId} enviado para {RecipientEmail}.",
+                alert.Id,
+                user.Email.Value);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            // Falha no e-mail não deve interromper
+            // o processamento da cotação nem desfazer
+            // o alerta já persistido.
+
+            _logger.LogError(
+                exception,
+                "Falha ao enviar e-mail referente ao alerta {AlertId}.",
+                alert.Id);
+        }
+    }
+
+    private static string GetConditionDescription(
+        AlertCondition condition)
+    {
+        return condition switch
+        {
+            AlertCondition.Above =>
+                "Acima ou igual ao preço-alvo",
+
+            AlertCondition.Below =>
+                "Abaixo ou igual ao preço-alvo",
+
+            _ =>
+                condition.ToString()
+        };
     }
 
     private void ValidateOptions()
     {
         if (string.IsNullOrWhiteSpace(
-                _rabbitMqOptions.QuotationQueueName))
+            _rabbitMqOptions.QuotationQueueName))
         {
             throw new InvalidOperationException(
-                "A fila de cotações do RabbitMQ não foi configurada."
-            );
+                "A fila de cotações do RabbitMQ não foi configurada.");
         }
 
         if (string.IsNullOrWhiteSpace(
-                _rabbitMqOptions.QuotationRoutingKey))
+            _rabbitMqOptions.QuotationRoutingKey))
         {
             throw new InvalidOperationException(
-                "A RoutingKey de cotações do RabbitMQ não foi configurada."
-            );
+                "A RoutingKey de cotações do RabbitMQ não foi configurada.");
         }
     }
 }

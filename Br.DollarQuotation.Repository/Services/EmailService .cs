@@ -61,6 +61,46 @@ public sealed class EmailService : IEmailService
         }
     }
 
+    public async Task SendQuotationAlertTriggeredAsync(string recipientEmail, string recipientName, string currencyPair, decimal currentPrice, decimal targetPrice, string condition, CancellationToken cancellationToken = default)
+    {
+        ValidateOptions();
+
+        var message = new MimeMessage();
+
+        message.From.Add(new MailboxAddress(_options.SenderName, _options.SenderEmail));
+        message.To.Add(new MailboxAddress(recipientName,recipientEmail));
+        message.Subject = $"Alerta de cotação atingido - {currencyPair}";
+        message.Body = new TextPart(TextFormat.Html)
+            {
+                Text = BuildQuotationAlertEmail(recipientName, currencyPair, currentPrice,targetPrice, condition)
+            };
+
+        using var smtpClient = new SmtpClient();
+
+        smtpClient.CheckCertificateRevocation =
+            false;
+
+        try
+        {
+            await smtpClient.ConnectAsync(_options.SmtpHost, _options.SmtpPort, SecureSocketOptions.StartTls, cancellationToken);
+            await smtpClient.AuthenticateAsync(_options.Username, _options.Password, cancellationToken);
+            await smtpClient.SendAsync(message, cancellationToken);
+            await smtpClient.DisconnectAsync(true, cancellationToken);
+
+            _logger.LogInformation("E-mail de alerta de cotação enviado com sucesso para {RecipientEmail}. " + "Par: {CurrencyPair}.", recipientEmail, currencyPair);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Erro ao enviar e-mail de alerta de cotação para {RecipientEmail}. " + "Par: {CurrencyPair}.", recipientEmail, currencyPair);
+
+            throw;
+        }
+    }
+
     private void ValidateOptions()
     {
         if (string.IsNullOrWhiteSpace(_options.SmtpHost))
@@ -273,5 +313,245 @@ public sealed class EmailService : IEmailService
             </body>
             </html>
             """;
+    }
+
+    private static string BuildQuotationAlertEmail(string recipientName, string currencyPair, decimal currentPrice, decimal targetPrice, string condition)
+    {
+        var currentPriceFormatted = currentPrice.ToString("N4", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        var targetPriceFormatted = targetPrice.ToString("N4", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+
+        return $"""
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+
+        <head>
+            <meta charset="UTF-8">
+        </head>
+
+        <body style="
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #17324d;
+        ">
+
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                style="
+                    background-color: #f5f7fa;
+                    padding: 32px 16px;
+                "
+            >
+                <tr>
+                    <td align="center">
+
+                        <table
+                            width="100%"
+                            cellpadding="0"
+                            cellspacing="0"
+                            style="
+                                max-width: 600px;
+                                background-color: #ffffff;
+                                border-radius: 16px;
+                                overflow: hidden;
+                                box-shadow: 0 8px 24px rgba(0, 59, 113, 0.08);
+                            "
+                        >
+
+                            <tr>
+                                <td style="
+                                    padding: 28px 32px;
+                                    background: #003b71;
+                                    color: #ffffff;
+                                ">
+                                    <div style="
+                                        font-size: 22px;
+                                        font-weight: 700;
+                                    ">
+                                        Câmbio
+                                        <span style="color: #ff8a1f;">
+                                            Pulse
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding: 36px 32px;">
+
+                                    <div style="
+                                        margin-bottom: 12px;
+                                        color: #ec7000;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        text-transform: uppercase;
+                                        letter-spacing: 1px;
+                                    ">
+                                        Alerta de cotação
+                                    </div>
+
+                                    <h1 style="
+                                        margin: 0 0 18px;
+                                        color: #17324d;
+                                        font-size: 26px;
+                                    ">
+                                        Seu preço-alvo foi atingido
+                                    </h1>
+
+                                    <p style="
+                                        margin: 0 0 22px;
+                                        color: #5f6b78;
+                                        font-size: 15px;
+                                        line-height: 1.6;
+                                    ">
+                                        Olá, {recipientName}.
+                                    </p>
+
+                                    <p style="
+                                        margin: 0 0 26px;
+                                        color: #5f6b78;
+                                        font-size: 15px;
+                                        line-height: 1.6;
+                                    ">
+                                        Um dos seus alertas cadastrados no
+                                        Câmbio Pulse atingiu a condição definida.
+                                    </p>
+
+                                    <table
+                                        width="100%"
+                                        cellpadding="0"
+                                        cellspacing="0"
+                                        style="
+                                            background-color: #f7f9fc;
+                                            border-radius: 12px;
+                                            padding: 8px;
+                                        "
+                                    >
+
+                                        <tr>
+                                            <td style="
+                                                padding: 14px;
+                                                color: #6b7785;
+                                                font-size: 13px;
+                                            ">
+                                                Par de moedas
+                                            </td>
+
+                                            <td
+                                                align="right"
+                                                style="
+                                                    padding: 14px;
+                                                    color: #17324d;
+                                                    font-weight: 700;
+                                                "
+                                            >
+                                                {currencyPair}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="
+                                                padding: 14px;
+                                                color: #6b7785;
+                                                font-size: 13px;
+                                            ">
+                                                Condição
+                                            </td>
+
+                                            <td
+                                                align="right"
+                                                style="
+                                                    padding: 14px;
+                                                    color: #17324d;
+                                                    font-weight: 700;
+                                                "
+                                            >
+                                                {condition}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="
+                                                padding: 14px;
+                                                color: #6b7785;
+                                                font-size: 13px;
+                                            ">
+                                                Preço-alvo
+                                            </td>
+
+                                            <td
+                                                align="right"
+                                                style="
+                                                    padding: 14px;
+                                                    color: #17324d;
+                                                    font-weight: 700;
+                                                "
+                                            >
+                                                {targetPriceFormatted}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="
+                                                padding: 14px;
+                                                color: #6b7785;
+                                                font-size: 13px;
+                                            ">
+                                                Cotação atual
+                                            </td>
+
+                                            <td
+                                                align="right"
+                                                style="
+                                                    padding: 14px;
+                                                    color: #ec7000;
+                                                    font-size: 18px;
+                                                    font-weight: 700;
+                                                "
+                                            >
+                                                {currentPriceFormatted}
+                                            </td>
+                                        </tr>
+
+                                    </table>
+
+                                    <p style="
+                                        margin: 26px 0 0;
+                                        color: #8793a0;
+                                        font-size: 12px;
+                                        line-height: 1.6;
+                                    ">
+                                        O alerta foi automaticamente marcado
+                                        como disparado e não será acionado novamente
+                                        até que seja reativado.
+                                    </p>
+
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="
+                                    padding: 20px 32px;
+                                    border-top: 1px solid #edf1f5;
+                                    color: #9ca3ad;
+                                    font-size: 11px;
+                                ">
+                                    © 2026 Câmbio Pulse
+                                </td>
+                            </tr>
+
+                        </table>
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+
+        </html>
+        """;
     }
 }

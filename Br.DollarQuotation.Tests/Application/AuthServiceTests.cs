@@ -1,4 +1,6 @@
-﻿using Br.DollarQuotation.Application.DTOs.Requests;
+﻿using System.Security.Cryptography;
+using System.Text;
+using Br.DollarQuotation.Application.DTOs.Requests;
 using Br.DollarQuotation.Application.Services;
 using Br.DollarQuotation.Domain.Entities;
 using Br.DollarQuotation.Domain.Exceptions;
@@ -14,7 +16,8 @@ namespace Br.DollarQuotation.Tests.Application;
 public sealed class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
-    private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
+    private readonly Mock<IPasswordResetTokenRepository>
+        _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
     private readonly Mock<IEmailService> _emailServiceMock;
@@ -24,69 +27,110 @@ public sealed class AuthServiceTests
 
     public AuthServiceTests()
     {
-        _userRepositoryMock = new Mock<IUserRepository>();
-        _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
-        _passwordHasherMock = new Mock<IPasswordHasher>();
-        _tokenServiceMock = new Mock<ITokenService>();
-        _emailServiceMock = new Mock<IEmailService>();
+        _userRepositoryMock =
+            new Mock<IUserRepository>();
 
-        _jwtOptions = new JwtOptions
-        {
-            SecretKey = "TEST_SECRET_KEY_123456789012345678901234567890",
-            Issuer = "Br.DollarQuotation.Tests",
-            Audience = "Br.DollarQuotation.Tests",
-            ExpirationInMinutes = 60
-        };
+        _passwordResetTokenRepositoryMock =
+            new Mock<IPasswordResetTokenRepository>();
 
-        _passwordResetOptions = new PasswordResetOptions
-        {
-            TokenExpirationInMinutes = 30,
-            FrontendResetPasswordUrl = "http://localhost:4200/reset-password"
-        };
+        _passwordHasherMock =
+            new Mock<IPasswordHasher>();
+
+        _tokenServiceMock =
+            new Mock<ITokenService>();
+
+        _emailServiceMock =
+            new Mock<IEmailService>();
+
+        _jwtOptions =
+            new JwtOptions
+            {
+                SecretKey =
+                    "TEST_SECRET_KEY_123456789012345678901234567890",
+
+                Issuer =
+                    "Br.DollarQuotation.Tests",
+
+                Audience =
+                    "Br.DollarQuotation.Tests",
+
+                ExpirationInMinutes =
+                    60
+            };
+
+        _passwordResetOptions =
+            new PasswordResetOptions
+            {
+                TokenExpirationInMinutes =
+                    30,
+
+                FrontendResetPasswordUrl =
+                    "http://localhost:4200/reset-password"
+            };
     }
+
+    // =========================================================
+    // LOGIN
+    // =========================================================
 
     [Fact]
     public async Task LoginAsync_WithValidCredentials_ShouldReturnLoginResponse()
     {
         // Arrange
-        var user = CreateUser();
+        var user =
+            CreateUser();
 
-        var request = new LoginRequest
-        {
-            Email = "teste@email.com",
-            Password = "Senha@123"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "teste@email.com",
+
+                Password =
+                    "Senha@123"
+            };
 
         _userRepositoryMock
-            .Setup(repository =>
-                repository.GetByEmailAsync(
-                    It.Is<Email>(
-                        email =>
-                            email.Value == "teste@email.com"),
-                    It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.Is<Email>(
+                            email =>
+                                email.Value ==
+                                "teste@email.com"),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
 
         _passwordHasherMock
-            .Setup(hasher =>
-                hasher.Verify(
-                    request.Password,
-                    user.PasswordHash))
-            .Returns(true);
+            .Setup(
+                hasher =>
+                    hasher.Verify(
+                        request.Password,
+                        user.PasswordHash))
+            .Returns(
+                true);
 
         _tokenServiceMock
-            .Setup(service =>
-                service.GenerateAccessToken(
-                    user,
-                    It.IsAny<DateTime>()))
-            .Returns("token-jwt-teste");
+            .Setup(
+                service =>
+                    service.GenerateAccessToken(
+                        user,
+                        It.IsAny<DateTime>()))
+            .Returns(
+                "token-jwt-teste");
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
-        var response = await service.LoginAsync(request);
+        var response =
+            await service.LoginAsync(
+                request);
 
         // Assert
-        Assert.NotNull(response);
+        Assert.NotNull(
+            response);
 
         Assert.Equal(
             user.Id,
@@ -105,7 +149,8 @@ public sealed class AuthServiceTests
             response.AccessToken);
 
         Assert.True(
-            response.ExpiresAt > DateTime.UtcNow);
+            response.ExpiresAt >
+            DateTime.UtcNow);
 
         _userRepositoryMock.Verify(
             repository =>
@@ -133,25 +178,35 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithNonExistingEmail_ShouldThrowInvalidCredentialsException()
     {
         // Arrange
-        var request = new LoginRequest
-        {
-            Email = "inexistente@email.com",
-            Password = "Senha@123"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "inexistente@email.com",
+
+                Password =
+                    "Senha@123"
+            };
 
         _userRepositoryMock
-            .Setup(repository =>
-                repository.GetByEmailAsync(
-                    It.IsAny<Email>(),
-                    It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (User?)null);
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
         var exception =
-            await Assert.ThrowsAsync<InvalidCredentialsException>(
-                () => service.LoginAsync(request));
+            await Assert.ThrowsAsync<
+                InvalidCredentialsException>(
+                () =>
+                    service.LoginAsync(
+                        request));
 
         // Assert
         Assert.Equal(
@@ -177,34 +232,47 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithInvalidPassword_ShouldThrowInvalidCredentialsException()
     {
         // Arrange
-        var user = CreateUser();
+        var user =
+            CreateUser();
 
-        var request = new LoginRequest
-        {
-            Email = "teste@email.com",
-            Password = "senha-incorreta"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "teste@email.com",
+
+                Password =
+                    "senha-incorreta"
+            };
 
         _userRepositoryMock
-            .Setup(repository =>
-                repository.GetByEmailAsync(
-                    It.IsAny<Email>(),
-                    It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
 
         _passwordHasherMock
-            .Setup(hasher =>
-                hasher.Verify(
-                    request.Password,
-                    user.PasswordHash))
-            .Returns(false);
+            .Setup(
+                hasher =>
+                    hasher.Verify(
+                        request.Password,
+                        user.PasswordHash))
+            .Returns(
+                false);
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
         var exception =
-            await Assert.ThrowsAsync<InvalidCredentialsException>(
-                () => service.LoginAsync(request));
+            await Assert.ThrowsAsync<
+                InvalidCredentialsException>(
+                () =>
+                    service.LoginAsync(
+                        request));
 
         // Assert
         Assert.Equal(
@@ -223,36 +291,49 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithInactiveUser_ShouldThrowInactiveUserException()
     {
         // Arrange
-        var user = CreateUser();
+        var user =
+            CreateUser();
 
         user.Deactivate();
 
-        var request = new LoginRequest
-        {
-            Email = "teste@email.com",
-            Password = "Senha@123"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "teste@email.com",
+
+                Password =
+                    "Senha@123"
+            };
 
         _userRepositoryMock
-            .Setup(repository =>
-                repository.GetByEmailAsync(
-                    It.IsAny<Email>(),
-                    It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
 
         _passwordHasherMock
-            .Setup(hasher =>
-                hasher.Verify(
-                    request.Password,
-                    user.PasswordHash))
-            .Returns(true);
+            .Setup(
+                hasher =>
+                    hasher.Verify(
+                        request.Password,
+                        user.PasswordHash))
+            .Returns(
+                true);
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
         var exception =
-            await Assert.ThrowsAsync<InactiveUserException>(
-                () => service.LoginAsync(request));
+            await Assert.ThrowsAsync<
+                InactiveUserException>(
+                () =>
+                    service.LoginAsync(
+                        request));
 
         // Assert
         Assert.Equal(
@@ -271,18 +352,22 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithEmptyEmail_ShouldThrowDomainException()
     {
         // Arrange
-        var request = new LoginRequest
-        {
-            Email = "",
-            Password = "Senha@123"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email = "",
+                Password = "Senha@123"
+            };
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
         var exception =
             await Assert.ThrowsAsync<DomainException>(
-                () => service.LoginAsync(request));
+                () =>
+                    service.LoginAsync(
+                        request));
 
         // Assert
         Assert.Equal(
@@ -301,18 +386,24 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithEmptyPassword_ShouldThrowDomainException()
     {
         // Arrange
-        var request = new LoginRequest
-        {
-            Email = "teste@email.com",
-            Password = ""
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "teste@email.com",
 
-        var service = CreateService();
+                Password = ""
+            };
+
+        var service =
+            CreateService();
 
         // Act
         var exception =
             await Assert.ThrowsAsync<DomainException>(
-                () => service.LoginAsync(request));
+                () =>
+                    service.LoginAsync(
+                        request));
 
         // Assert
         Assert.Equal(
@@ -331,12 +422,15 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithNullRequest_ShouldThrowDomainException()
     {
         // Arrange
-        var service = CreateService();
+        var service =
+            CreateService();
 
         // Act
         var exception =
             await Assert.ThrowsAsync<DomainException>(
-                () => service.LoginAsync(null!));
+                () =>
+                    service.LoginAsync(
+                        null!));
 
         // Assert
         Assert.Equal(
@@ -348,60 +442,80 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_ShouldGenerateTokenWithConfiguredExpiration()
     {
         // Arrange
-        var user = CreateUser();
+        var user =
+            CreateUser();
 
-        var request = new LoginRequest
-        {
-            Email = "teste@email.com",
-            Password = "Senha@123"
-        };
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "teste@email.com",
 
-        DateTime? generatedExpiration = null;
+                Password =
+                    "Senha@123"
+            };
+
+        DateTime? generatedExpiration =
+            null;
 
         _userRepositoryMock
-            .Setup(repository =>
-                repository.GetByEmailAsync(
-                    It.IsAny<Email>(),
-                    It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
 
         _passwordHasherMock
-            .Setup(hasher =>
-                hasher.Verify(
-                    request.Password,
-                    user.PasswordHash))
-            .Returns(true);
+            .Setup(
+                hasher =>
+                    hasher.Verify(
+                        request.Password,
+                        user.PasswordHash))
+            .Returns(
+                true);
 
         _tokenServiceMock
-            .Setup(tokenService =>
-                tokenService.GenerateAccessToken(
-                    user,
-                    It.IsAny<DateTime>()))
+            .Setup(
+                tokenService =>
+                    tokenService.GenerateAccessToken(
+                        user,
+                        It.IsAny<DateTime>()))
             .Callback<User, DateTime>(
                 (_, expiresAt) =>
-                    generatedExpiration = expiresAt)
-            .Returns("token-jwt-teste");
+                    generatedExpiration =
+                        expiresAt)
+            .Returns(
+                "token-jwt-teste");
 
-        var service = CreateService();
+        var service =
+            CreateService();
 
-        var beforeLogin = DateTime.UtcNow;
+        var beforeLogin =
+            DateTime.UtcNow;
 
         // Act
         var response =
-            await service.LoginAsync(request);
+            await service.LoginAsync(
+                request);
 
-        var afterLogin = DateTime.UtcNow;
+        var afterLogin =
+            DateTime.UtcNow;
 
         // Assert
-        Assert.NotNull(generatedExpiration);
+        Assert.NotNull(
+            generatedExpiration);
 
         var minimumExpiration =
             beforeLogin.AddMinutes(
-                _jwtOptions.ExpirationInMinutes);
+                _jwtOptions
+                    .ExpirationInMinutes);
 
         var maximumExpiration =
             afterLogin.AddMinutes(
-                _jwtOptions.ExpirationInMinutes);
+                _jwtOptions
+                    .ExpirationInMinutes);
 
         Assert.InRange(
             generatedExpiration.Value,
@@ -413,6 +527,996 @@ public sealed class AuthServiceTests
             response.ExpiresAt);
     }
 
+    // =========================================================
+    // FORGOT PASSWORD
+    // =========================================================
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithValidUser_ShouldCreateTokenAndSendEmail()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        var request =
+            new ForgotPasswordRequest
+            {
+                Email =
+                    "teste@email.com"
+            };
+
+        PasswordResetToken? createdToken =
+            null;
+
+        string? resetLink =
+            null;
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.Is<Email>(
+                            email =>
+                                email.Value ==
+                                "teste@email.com"),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository.AddAsync(
+                        It.IsAny<PasswordResetToken>(),
+                        It.IsAny<CancellationToken>()))
+            .Callback<
+                PasswordResetToken,
+                CancellationToken>(
+                (token, _) =>
+                    createdToken =
+                        token);
+
+        _emailServiceMock
+            .Setup(
+                service =>
+                    service.SendPasswordResetAsync(
+                        user.Email.Value,
+                        user.Name,
+                        It.IsAny<string>(),
+                        It.IsAny<CancellationToken>()))
+            .Callback<
+                string,
+                string,
+                string,
+                CancellationToken>(
+                (_, _, link, _) =>
+                    resetLink =
+                        link);
+
+        var service =
+            CreateService();
+
+        var before =
+            DateTime.UtcNow;
+
+        // Act
+        await service.ForgotPasswordAsync(
+            request);
+
+        var after =
+            DateTime.UtcNow;
+
+        // Assert
+        Assert.NotNull(
+            createdToken);
+
+        Assert.NotNull(
+            resetLink);
+
+        Assert.Equal(
+            user.Id,
+            createdToken.UserId);
+
+        Assert.False(
+            createdToken.IsUsed);
+
+        Assert.True(
+            createdToken.ExpiresAt >
+            DateTime.UtcNow);
+
+        Assert.InRange(
+            createdToken.ExpiresAt,
+            before.AddMinutes(
+                _passwordResetOptions
+                    .TokenExpirationInMinutes),
+            after.AddMinutes(
+                _passwordResetOptions
+                    .TokenExpirationInMinutes));
+
+        Assert.StartsWith(
+            _passwordResetOptions
+                .FrontendResetPasswordUrl +
+            "?token=",
+            resetLink);
+
+        var rawToken =
+            ExtractTokenFromResetLink(
+                resetLink);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(
+                rawToken));
+
+        Assert.Equal(
+            ComputeTokenHash(
+                rawToken),
+            createdToken.TokenHash);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .InvalidateActiveTokensByUserIdAsync(
+                        user.Id,
+                        It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.AddAsync(
+                    It.IsAny<PasswordResetToken>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.SaveChangesAsync(
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _emailServiceMock.Verify(
+            emailService =>
+                emailService.SendPasswordResetAsync(
+                    user.Email.Value,
+                    user.Name,
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithNonExistingUser_ShouldNotCreateTokenOrSendEmail()
+    {
+        // Arrange
+        var request =
+            new ForgotPasswordRequest
+            {
+                Email =
+                    "inexistente@email.com"
+            };
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (User?)null);
+
+        var service =
+            CreateService();
+
+        // Act
+        await service.ForgotPasswordAsync(
+            request);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .InvalidateActiveTokensByUserIdAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.AddAsync(
+                    It.IsAny<PasswordResetToken>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.SaveChangesAsync(
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _emailServiceMock.Verify(
+            service =>
+                service.SendPasswordResetAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithInactiveUser_ShouldNotCreateTokenOrSendEmail()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        user.Deactivate();
+
+        var request =
+            new ForgotPasswordRequest
+            {
+                Email =
+                    user.Email.Value
+            };
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        var service =
+            CreateService();
+
+        // Act
+        await service.ForgotPasswordAsync(
+            request);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .InvalidateActiveTokensByUserIdAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.AddAsync(
+                    It.IsAny<PasswordResetToken>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _emailServiceMock.Verify(
+            service =>
+                service.SendPasswordResetAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithEmptyEmail_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ForgotPasswordRequest
+            {
+                Email = ""
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ForgotPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "O e-mail é obrigatório.",
+            exception.Message);
+
+        _userRepositoryMock.Verify(
+            repository =>
+                repository.GetByEmailAsync(
+                    It.IsAny<Email>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithNullRequest_ShouldThrowDomainException()
+    {
+        // Arrange
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ForgotPasswordAsync(
+                        null!));
+
+        // Assert
+        Assert.Equal(
+            "Os dados de recuperação de senha são obrigatórios.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_ShouldInvalidatePreviousTokensBeforeCreatingNewToken()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        var request =
+            new ForgotPasswordRequest
+            {
+                Email =
+                    user.Email.Value
+            };
+
+        var sequence =
+            new MockSequence();
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.IsAny<Email>(),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        _passwordResetTokenRepositoryMock
+            .InSequence(sequence)
+            .Setup(
+                repository =>
+                    repository
+                        .InvalidateActiveTokensByUserIdAsync(
+                            user.Id,
+                            It.IsAny<CancellationToken>()));
+
+        _passwordResetTokenRepositoryMock
+            .InSequence(sequence)
+            .Setup(
+                repository =>
+                    repository.AddAsync(
+                        It.IsAny<PasswordResetToken>(),
+                        It.IsAny<CancellationToken>()));
+
+        var service =
+            CreateService();
+
+        // Act
+        await service.ForgotPasswordAsync(
+            request);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .InvalidateActiveTokensByUserIdAsync(
+                        user.Id,
+                        It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.AddAsync(
+                    It.IsAny<PasswordResetToken>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // =========================================================
+    // RESET PASSWORD
+    // =========================================================
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithValidToken_ShouldUpdatePasswordAndMarkTokenAsUsed()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        const string rawToken =
+            "TOKEN-DE-RECUPERACAO-VALIDO";
+
+        var tokenHash =
+            ComputeTokenHash(
+                rawToken);
+
+        var resetToken =
+            new PasswordResetToken(
+                user.Id,
+                tokenHash,
+                DateTime.UtcNow
+                    .AddMinutes(30));
+
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    rawToken,
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository
+                        .GetValidByTokenHashAsync(
+                            tokenHash,
+                            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                resetToken);
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByIdAsync(
+                        user.Id,
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        _passwordHasherMock
+            .Setup(
+                hasher =>
+                    hasher.Hash(
+                        request.NewPassword))
+            .Returns(
+                "novo-hash-da-senha");
+
+        var service =
+            CreateService();
+
+        // Act
+        await service.ResetPasswordAsync(
+            request);
+
+        // Assert
+        Assert.Equal(
+            "novo-hash-da-senha",
+            user.PasswordHash);
+
+        Assert.True(
+            resetToken.IsUsed);
+
+        Assert.NotNull(
+            resetToken.UsedAt);
+
+        _passwordHasherMock.Verify(
+            hasher =>
+                hasher.Hash(
+                    request.NewPassword),
+            Times.Once);
+
+        _userRepositoryMock.Verify(
+            repository =>
+                repository.UpdateAsync(
+                    user,
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository.SaveChangesAsync(
+                    It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithInvalidToken_ShouldThrowDomainException()
+    {
+        // Arrange
+        const string rawToken =
+            "TOKEN-INVALIDO";
+
+        var tokenHash =
+            ComputeTokenHash(
+                rawToken);
+
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    rawToken,
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository
+                        .GetValidByTokenHashAsync(
+                            tokenHash,
+                            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (PasswordResetToken?)null);
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "O token de recuperação é inválido ou expirou.",
+            exception.Message);
+
+        _userRepositoryMock.Verify(
+            repository =>
+                repository.GetByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _passwordHasherMock.Verify(
+            hasher =>
+                hasher.Hash(
+                    It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenUserDoesNotExist_ShouldThrowDomainException()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        const string rawToken =
+            "TOKEN-USUARIO-INEXISTENTE";
+
+        var tokenHash =
+            ComputeTokenHash(
+                rawToken);
+
+        var resetToken =
+            new PasswordResetToken(
+                user.Id,
+                tokenHash,
+                DateTime.UtcNow
+                    .AddMinutes(30));
+
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    rawToken,
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository
+                        .GetValidByTokenHashAsync(
+                            tokenHash,
+                            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                resetToken);
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByIdAsync(
+                        resetToken.UserId,
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (User?)null);
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "O usuário associado ao token não foi encontrado.",
+            exception.Message);
+
+        _passwordHasherMock.Verify(
+            hasher =>
+                hasher.Hash(
+                    It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithInactiveUser_ShouldThrowDomainException()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        user.Deactivate();
+
+        const string rawToken =
+            "TOKEN-USUARIO-INATIVO";
+
+        var tokenHash =
+            ComputeTokenHash(
+                rawToken);
+
+        var resetToken =
+            new PasswordResetToken(
+                user.Id,
+                tokenHash,
+                DateTime.UtcNow
+                    .AddMinutes(30));
+
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    rawToken,
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository
+                        .GetValidByTokenHashAsync(
+                            tokenHash,
+                            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                resetToken);
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByIdAsync(
+                        user.Id,
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "O usuário associado ao token está inativo.",
+            exception.Message);
+
+        _passwordHasherMock.Verify(
+            hasher =>
+                hasher.Hash(
+                    It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithDifferentPasswords_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    "TOKEN",
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "OutraSenha@123"
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "A nova senha e a confirmação não conferem.",
+            exception.Message);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .GetValidByTokenHashAsync(
+                        It.IsAny<string>(),
+                        It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithPasswordLessThanEightCharacters_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    "TOKEN",
+
+                NewPassword =
+                    "1234567",
+
+                ConfirmPassword =
+                    "1234567"
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "A nova senha deve possuir no mínimo 8 caracteres.",
+            exception.Message);
+
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .GetValidByTokenHashAsync(
+                        It.IsAny<string>(),
+                        It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithEmptyToken_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ResetPasswordRequest
+            {
+                Token = "",
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "O token de recuperação é obrigatório.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithEmptyNewPassword_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    "TOKEN",
+
+                NewPassword = "",
+
+                ConfirmPassword = ""
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "A nova senha é obrigatória.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithEmptyConfirmation_ShouldThrowDomainException()
+    {
+        // Arrange
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    "TOKEN",
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword = ""
+            };
+
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        request));
+
+        // Assert
+        Assert.Equal(
+            "A confirmação da nova senha é obrigatória.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WithNullRequest_ShouldThrowDomainException()
+    {
+        // Arrange
+        var service =
+            CreateService();
+
+        // Act
+        var exception =
+            await Assert.ThrowsAsync<DomainException>(
+                () =>
+                    service.ResetPasswordAsync(
+                        null!));
+
+        // Assert
+        Assert.Equal(
+            "Os dados para redefinição da senha são obrigatórios.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_ShouldSearchTokenUsingSha256Hash()
+    {
+        // Arrange
+        var user =
+            CreateUser();
+
+        const string rawToken =
+            "TOKEN-PARA-VALIDAR-HASH";
+
+        var expectedHash =
+            ComputeTokenHash(
+                rawToken);
+
+        var resetToken =
+            new PasswordResetToken(
+                user.Id,
+                expectedHash,
+                DateTime.UtcNow
+                    .AddMinutes(30));
+
+        var request =
+            new ResetPasswordRequest
+            {
+                Token =
+                    rawToken,
+
+                NewPassword =
+                    "NovaSenha@123",
+
+                ConfirmPassword =
+                    "NovaSenha@123"
+            };
+
+        _passwordResetTokenRepositoryMock
+            .Setup(
+                repository =>
+                    repository
+                        .GetValidByTokenHashAsync(
+                            expectedHash,
+                            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                resetToken);
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByIdAsync(
+                        user.Id,
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        _passwordHasherMock
+            .Setup(
+                hasher =>
+                    hasher.Hash(
+                        request.NewPassword))
+            .Returns(
+                "novo-hash");
+
+        var service =
+            CreateService();
+
+        // Act
+        await service.ResetPasswordAsync(
+            request);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(
+            repository =>
+                repository
+                    .GetValidByTokenHashAsync(
+                        expectedHash,
+                        It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
     private AuthService CreateService()
     {
         return new AuthService(
@@ -421,15 +1525,71 @@ public sealed class AuthServiceTests
             _passwordHasherMock.Object,
             _tokenServiceMock.Object,
             _emailServiceMock.Object,
-            Options.Create(_jwtOptions),
-            Options.Create(_passwordResetOptions));
+            Options.Create(
+                _jwtOptions),
+            Options.Create(
+                _passwordResetOptions));
     }
 
     private static User CreateUser()
     {
         return new User(
             "Leonardo",
-            Email.Create("teste@email.com"),
+            Email.Create(
+                "teste@email.com"),
             "hash-da-senha");
+    }
+
+    private static string ComputeTokenHash(
+        string token)
+    {
+        var tokenBytes =
+            Encoding.UTF8.GetBytes(
+                token);
+
+        var hashBytes =
+            SHA256.HashData(
+                tokenBytes);
+
+        return Convert.ToHexString(
+            hashBytes);
+    }
+
+    private static string ExtractTokenFromResetLink(
+        string resetLink)
+    {
+        var uri =
+            new Uri(
+                resetLink);
+
+        var query =
+            uri.Query
+                .TrimStart('?');
+
+        var queryParameters =
+            query.Split(
+                '&',
+                StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var parameter in queryParameters)
+        {
+            var parts =
+                parameter.Split(
+                    '=',
+                    2);
+
+            if (
+                parts.Length == 2 &&
+                string.Equals(
+                    parts[0],
+                    "token",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(
+                    parts[1]);
+            }
+        }
+
+        return string.Empty;
     }
 }

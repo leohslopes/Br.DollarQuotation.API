@@ -361,7 +361,12 @@ app.UseSwagger();
 
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 
 // CORS precisa vir antes de
 // autenticação/autorização.

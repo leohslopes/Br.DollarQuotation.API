@@ -26,7 +26,7 @@ public sealed class PasswordResetToken : Entity
         !IsUsed &&
         !IsExpired;
 
-    protected PasswordResetToken()
+    private PasswordResetToken()
     {
     }
 

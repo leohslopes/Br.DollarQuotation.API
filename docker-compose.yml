@@ -39,8 +39,8 @@ services:
     restart: unless-stopped
 
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
 
     ports:
       - "5672:5672"
@@ -66,7 +66,7 @@ services:
   # API
   # ============================================================
   api:
-    image: br-dollarquotation-api:latest
+    image: ghcr.io/leohslopes/br-dollarquotation-api:latest
     container_name: dollarquotation-api
     restart: unless-stopped
 
@@ -97,8 +97,8 @@ services:
       # ----------------------------------------------------------
       RabbitMq__HostName: rabbitmq
       RabbitMq__Port: "5672"
-      RabbitMq__UserName: guest
-      RabbitMq__Password: guest
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
       RabbitMq__VirtualHost: /
       RabbitMq__ExchangeName: dollarquotation.exchange
       RabbitMq__QuotationQueueName: dollarquotation.quotation.queue
@@ -123,6 +123,9 @@ services:
     ports:
       - "8080:8080"
 
+    volumes:
+      - dollarquotation_dataprotection_keys:/app/data-protection-keys
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,7 +149,7 @@ services:
   # WORKER
   # ============================================================
   worker:
-    image: br-dollarquotation-worker:latest
+    image: ghcr.io/leohslopes/br-dollarquotation-worker:latest
     container_name: dollarquotation-worker
     restart: unless-stopped
 
@@ -168,8 +171,8 @@ services:
       # ----------------------------------------------------------
       RabbitMq__HostName: rabbitmq
       RabbitMq__Port: "5672"
-      RabbitMq__UserName: guest
-      RabbitMq__Password: guest
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
       RabbitMq__VirtualHost: /
       RabbitMq__ExchangeName: dollarquotation.exchange
       RabbitMq__QuotationQueueName: dollarquotation.quotation.queue
@@ -187,7 +190,7 @@ services:
   # FRONTEND
   # ============================================================
   frontend:
-    image: br-dollarquotation-web:latest
+    image: ghcr.io/leohslopes/br-dollarquotation-web:latest
     container_name: dollarquotation-web
     restart: unless-stopped
 
@@ -214,7 +217,6 @@ services:
 # VOLUMES
 # ==============================================================
 volumes:
-
   dollarquotation_postgres_data:
-
   dollarquotation_rabbitmq_data:
+  dollarquotation_dataprotection_keys:
