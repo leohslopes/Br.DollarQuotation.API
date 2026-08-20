@@ -10,22 +10,13 @@ on:
       - main
 
 jobs:
-
   build-and-test:
     name: Build and Test Backend
-
     runs-on: ubuntu-latest
 
     timeout-minutes: 15
 
-    env:
-      DOTNET_NOLOGO: true
-      DOTNET_CLI_TELEMETRY_OPTOUT: true
-
-      TEST_DB_CONNECTION_STRING: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
-
     services:
-
       postgres:
         image: postgres:16
 
@@ -39,12 +30,21 @@ jobs:
 
         options: >-
           --health-cmd="pg_isready -U postgres -d dollar_quotation_test"
-          --health-interval=10s
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=10
+          --health-retries=20
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+      ASPNETCORE_ENVIRONMENT: Testing
+
+      TEST_DB_CONNECTION_STRING: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
+
+      ConnectionStrings__DefaultConnection: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -56,21 +56,28 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build solution
+      - name: Build
         run: dotnet build --configuration Release --no-restore
 
       - name: Wait for PostgreSQL
+        shell: bash
         run: |
+          echo "Waiting for PostgreSQL..."
+
           for i in {1..30}; do
 
-            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d dollar_quotation_test; then
+            if pg_isready \
+              -h 127.0.0.1 \
+              -p 5432 \
+              -U postgres \
+              -d dollar_quotation_test; then
 
               echo "PostgreSQL is ready."
 
               exit 0
             fi
 
-            echo "Waiting for PostgreSQL..."
+            echo "Attempt $i/30 - PostgreSQL is not ready."
 
             sleep 2
 
@@ -80,5 +87,21 @@ jobs:
 
           exit 1
 
+      - name: Test PostgreSQL connection
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql \
+            -h 127.0.0.1 \
+            -p 5432 \
+            -U postgres \
+            -d dollar_quotation_test \
+            -c "SELECT 1;"
+
       - name: Run tests
-        run: dotnet test --configuration Release --no-build --no-restore --verbosity normal
+        run: >
+          dotnet test
+          --configuration Release
+          --no-build
+          --no-restore
+          --verbosity normal
