@@ -10,11 +10,22 @@ on:
       - main
 
 jobs:
+
   build-and-test:
     name: Build and Test Backend
+
     runs-on: ubuntu-latest
 
+    timeout-minutes: 15
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+      TEST_DB_CONNECTION_STRING: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
+
     services:
+
       postgres:
         image: postgres:16
 
@@ -32,10 +43,8 @@ jobs:
           --health-timeout=5s
           --health-retries=10
 
-    env:
-      TEST_DB_CONNECTION_STRING: "Host=127.0.0.1;Port=5432;Database=dollar_quotation_test;Username=postgres;Password=postgres"
-
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -47,23 +56,29 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build
+      - name: Build solution
         run: dotnet build --configuration Release --no-restore
 
       - name: Wait for PostgreSQL
         run: |
           for i in {1..30}; do
+
             if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d dollar_quotation_test; then
+
               echo "PostgreSQL is ready."
+
               exit 0
             fi
 
             echo "Waiting for PostgreSQL..."
+
             sleep 2
+
           done
 
           echo "PostgreSQL did not become ready."
+
           exit 1
 
       - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --no-restore --verbosity normal

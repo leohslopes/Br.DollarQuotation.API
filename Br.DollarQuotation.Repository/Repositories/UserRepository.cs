@@ -1,4 +1,5 @@
 ﻿using Br.DollarQuotation.Domain.Entities;
+using Br.DollarQuotation.Domain.Enums;
 using Br.DollarQuotation.Domain.Interfaces.Repositories;
 using Br.DollarQuotation.Domain.ValueObjects;
 using Br.DollarQuotation.Repository.Context;
@@ -63,6 +64,11 @@ public sealed class UserRepository : IUserRepository
     public async Task<int> CountAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Users.AsNoTracking().CountAsync(cancellationToken);
+    }
+
+    public async Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Users.AsNoTracking().CountAsync(user => user.IsActive && user.Role == UserRole.Admin, cancellationToken);
     }
 }
 

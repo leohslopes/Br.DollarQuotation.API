@@ -8,6 +8,8 @@ public sealed class UserResponse
 
     public string Email { get; set; } = string.Empty;
 
+    public string Role { get; set; } = "User";
+
     public string? PhotoBase64 { get; set; }
 
     public string? PhotoContentType { get; set; }

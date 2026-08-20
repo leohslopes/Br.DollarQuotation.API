@@ -1,6 +1,6 @@
 ﻿using Br.DollarQuotation.Repository.Services;
 
-namespace Br.DollarQuotation.Tests.Repository.Services;
+namespace Br.DollarQuotation.Tests.Infrastructure;
 
 public sealed class PasswordHasherTests
 {

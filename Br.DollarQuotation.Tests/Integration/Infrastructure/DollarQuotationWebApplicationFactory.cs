@@ -14,6 +14,9 @@ public sealed class DollarQuotationWebApplicationFactory
     public Mock<IAuthService> AuthServiceMock { get; } =
         new();
 
+    public Mock<IUserService> UserServiceMock { get; } =
+        new();
+
     protected override void ConfigureWebHost(
         IWebHostBuilder builder)
     {
@@ -57,9 +60,6 @@ public sealed class DollarQuotationWebApplicationFactory
         // =============================
         // RABBITMQ
         // =============================
-        // As configurações precisam existir
-        // porque RegisterDependencies lê
-        // RabbitMqOptions durante a inicialização.
 
         builder.UseSetting(
             "RabbitMq:HostName",
@@ -100,48 +100,73 @@ public sealed class DollarQuotationWebApplicationFactory
         builder.ConfigureServices(
             services =>
             {
-                // =========================
-                // AUTH SERVICE
-                // =========================
-                // Os testes do controller usam
-                // um mock para não depender das
-                // regras internas do AuthService.
+                ConfigureAuthService(
+                    services);
 
-                var authServiceDescriptor =
-                    services.FirstOrDefault(
-                        descriptor =>
-                            descriptor.ServiceType ==
-                            typeof(IAuthService));
+                ConfigureUserService(
+                    services);
 
-                if (authServiceDescriptor is not null)
-                {
-                    services.Remove(
-                        authServiceDescriptor);
-                }
-
-                services.AddScoped(
-                    _ => AuthServiceMock.Object);
-
-                // =========================
-                // DESABILITAR CONSUMER
-                // =========================
-                // O teste de Auth não deve
-                // depender de RabbitMQ.
-
-                var consumerDescriptor =
-                    services.FirstOrDefault(
-                        descriptor =>
-                            descriptor.ServiceType ==
-                                typeof(IHostedService) &&
-                            descriptor.ImplementationType ==
-                                typeof(
-                                    QuotationUpdatedConsumerWorker));
-
-                if (consumerDescriptor is not null)
-                {
-                    services.Remove(
-                        consumerDescriptor);
-                }
+                DisableQuotationConsumer(
+                    services);
             });
+    }
+
+    private void ConfigureAuthService(
+        IServiceCollection services)
+    {
+        var descriptor =
+            services.FirstOrDefault(
+                service =>
+                    service.ServiceType ==
+                    typeof(IAuthService));
+
+        if (descriptor is not null)
+        {
+            services.Remove(
+                descriptor);
+        }
+
+        services.AddScoped(
+            _ =>
+                AuthServiceMock.Object);
+    }
+
+    private void ConfigureUserService(
+        IServiceCollection services)
+    {
+        var descriptor =
+            services.FirstOrDefault(
+                service =>
+                    service.ServiceType ==
+                    typeof(IUserService));
+
+        if (descriptor is not null)
+        {
+            services.Remove(
+                descriptor);
+        }
+
+        services.AddScoped(
+            _ =>
+                UserServiceMock.Object);
+    }
+
+    private static void DisableQuotationConsumer(
+        IServiceCollection services)
+    {
+        var descriptor =
+            services.FirstOrDefault(
+                service =>
+                    service.ServiceType ==
+                        typeof(IHostedService) &&
+                    service.ImplementationType ==
+                        typeof(
+                            QuotationUpdatedConsumerWorker));
+
+        if (descriptor is not null)
+        {
+            services.Remove(
+                descriptor);
+        }
     }
 }

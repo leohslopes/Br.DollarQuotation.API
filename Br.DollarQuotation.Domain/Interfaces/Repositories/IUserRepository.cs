@@ -23,5 +23,8 @@ namespace Br.DollarQuotation.Domain.Interfaces.Repositories
         Task<IReadOnlyCollection<User>> GetPagedAsync(int page,int pageSize, CancellationToken cancellationToken = default);
 
         Task<int> CountAsync(CancellationToken cancellationToken = default);
+
+
+        Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default);
     }
 }

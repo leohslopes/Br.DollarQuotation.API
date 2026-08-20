@@ -13,6 +13,9 @@ namespace Br.DollarQuotation.API.Services;
 public sealed class QuotationUpdatedConsumerWorker
     : BackgroundService
 {
+    private const int InitialRetryDelaySeconds = 2;
+    private const int MaximumRetryDelaySeconds = 30;
+
     private readonly IMessageConsumer _messageConsumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly RabbitMqOptions _rabbitMqOptions;
@@ -48,29 +51,104 @@ public sealed class QuotationUpdatedConsumerWorker
             _rabbitMqOptions.QuotationQueueName,
             _rabbitMqOptions.QuotationRoutingKey);
 
-        try
-        {
-            await _messageConsumer
-                .ConsumeAsync<QuotationUpdatedMessage>(
-                    _rabbitMqOptions.QuotationQueueName,
-                    _rabbitMqOptions.QuotationRoutingKey,
-                    ProcessMessageAsync,
-                    stoppingToken);
-        }
-        catch (OperationCanceledException)
-            when (stoppingToken.IsCancellationRequested)
-        {
-            _logger.LogInformation(
-                "Consumer de atualização de cotações finalizado.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogCritical(
-                exception,
-                "Erro crítico no consumer de atualização de cotações.");
+        var retryAttempt = 0;
 
-            throw;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await _messageConsumer
+                    .ConsumeAsync<QuotationUpdatedMessage>(
+                        _rabbitMqOptions.QuotationQueueName,
+                        _rabbitMqOptions.QuotationRoutingKey,
+                        ProcessMessageAsync,
+                        stoppingToken);
+
+                /*
+                 * Se ConsumeAsync retornar normalmente sem que
+                 * a aplicação esteja sendo encerrada, permitimos
+                 * uma nova tentativa de inicialização do consumer.
+                 */
+
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        "O consumer RabbitMQ foi encerrado inesperadamente. " +
+                        "Uma nova conexão será iniciada.");
+
+                    retryAttempt = 0;
+                }
+            }
+            catch (OperationCanceledException)
+                when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                retryAttempt++;
+
+                var retryDelay =
+                    CalculateRetryDelay(
+                        retryAttempt);
+
+                _logger.LogWarning(
+                    exception,
+                    "Não foi possível iniciar ou manter o consumer RabbitMQ. " +
+                    "Tentativa: {RetryAttempt}. " +
+                    "Nova tentativa em {RetryDelaySeconds} segundo(s).",
+                    retryAttempt,
+                    retryDelay.TotalSeconds);
+
+                try
+                {
+                    await Task.Delay(
+                        retryDelay,
+                        stoppingToken);
+                }
+                catch (OperationCanceledException)
+                    when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
         }
+
+        _logger.LogInformation(
+            "Consumer de atualização de cotações finalizado.");
+    }
+
+    private static TimeSpan CalculateRetryDelay(
+        int retryAttempt)
+    {
+        /*
+         * Backoff:
+         *
+         * tentativa 1 -> 2s
+         * tentativa 2 -> 4s
+         * tentativa 3 -> 8s
+         * tentativa 4 -> 16s
+         * tentativa 5+ -> 30s
+         */
+
+        var exponent =
+            Math.Min(
+                retryAttempt - 1,
+                4);
+
+        var seconds =
+            InitialRetryDelaySeconds *
+            Math.Pow(
+                2,
+                exponent);
+
+        seconds =
+            Math.Min(
+                seconds,
+                MaximumRetryDelaySeconds);
+
+        return TimeSpan.FromSeconds(
+            seconds);
     }
 
     private async Task ProcessMessageAsync(
@@ -298,9 +376,11 @@ public sealed class QuotationUpdatedConsumerWorker
         }
         catch (Exception exception)
         {
-            // Falha no e-mail não deve interromper
-            // o processamento da cotação nem desfazer
-            // o alerta já persistido.
+            /*
+             * Falha no e-mail não deve interromper
+             * o processamento da cotação nem desfazer
+             * o alerta já persistido.
+             */
 
             _logger.LogError(
                 exception,

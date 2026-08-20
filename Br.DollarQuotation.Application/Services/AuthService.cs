@@ -41,7 +41,7 @@ public sealed class AuthService : IAuthService
     }
 
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request,CancellationToken cancellationToken = default)
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         ValidateLoginRequest(request);
 
@@ -69,6 +69,7 @@ public sealed class AuthService : IAuthService
             Email = user.Email.Value,
             PhotoBase64 = user.PhotoBase64,
             PhotoContentType = user.PhotoContentType,
+            Role = user.Role.ToString(),
             AccessToken = accessToken,
             ExpiresAt = expiresAt
         };

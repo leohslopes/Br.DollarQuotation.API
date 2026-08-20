@@ -1,7 +1,7 @@
 ﻿using Br.DollarQuotation.Domain.Exceptions;
 using Br.DollarQuotation.Domain.ValueObjects;
 
-namespace Br.DollarQuotation.Tests.Domain.ValueObjects;
+namespace Br.DollarQuotation.Tests.Domain;
 
 public sealed class EmailTests
 {

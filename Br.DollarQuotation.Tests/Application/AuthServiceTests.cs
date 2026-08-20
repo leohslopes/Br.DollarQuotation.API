@@ -10,6 +10,7 @@ using Br.DollarQuotation.Domain.ValueObjects;
 using Br.DollarQuotation.Repository.Configurations;
 using Microsoft.Extensions.Options;
 using Moq;
+using Br.DollarQuotation.Domain.Enums;
 
 namespace Br.DollarQuotation.Tests.Application;
 
@@ -143,6 +144,10 @@ public sealed class AuthServiceTests
         Assert.Equal(
             user.Email.Value,
             response.Email);
+
+        Assert.Equal(
+           user.Role.ToString(),
+           response.Role);
 
         Assert.Equal(
             "token-jwt-teste",
@@ -1510,6 +1515,106 @@ public sealed class AuthServiceTests
                     .GetValidByTokenHashAsync(
                         expectedHash,
                         It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithAdminUser_ShouldReturnAdminRole()
+    {
+        // Arrange
+        var user =
+            new User(
+                "Administrador",
+                Email.Create(
+                    "admin@email.com"),
+                "hash-da-senha",
+                role: UserRole.Admin);
+
+        var request =
+            new LoginRequest
+            {
+                Email =
+                    "admin@email.com",
+
+                Password =
+                    "Senha@123"
+            };
+
+        _userRepositoryMock
+            .Setup(
+                repository =>
+                    repository.GetByEmailAsync(
+                        It.Is<Email>(
+                            email =>
+                                email.Value ==
+                                "admin@email.com"),
+                        It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                user);
+
+        _passwordHasherMock
+            .Setup(
+                hasher =>
+                    hasher.Verify(
+                        request.Password,
+                        user.PasswordHash))
+            .Returns(
+                true);
+
+        _tokenServiceMock
+            .Setup(
+                tokenService =>
+                    tokenService.GenerateAccessToken(
+                        user,
+                        It.IsAny<DateTime>()))
+            .Returns(
+                "token-admin");
+
+        var service =
+            CreateService();
+
+        // Act
+        var response =
+            await service.LoginAsync(
+                request);
+
+        // Assert
+        Assert.NotNull(
+            response);
+
+        Assert.Equal(
+            user.Id,
+            response.UserId);
+
+        Assert.Equal(
+            "Administrador",
+            response.Name);
+
+        Assert.Equal(
+            "admin@email.com",
+            response.Email);
+
+        Assert.Equal(
+            UserRole.Admin.ToString(),
+            response.Role);
+
+        Assert.Equal(
+            "Admin",
+            response.Role);
+
+        Assert.Equal(
+            "token-admin",
+            response.AccessToken);
+
+        Assert.True(
+            response.ExpiresAt >
+            DateTime.UtcNow);
+
+        _tokenServiceMock.Verify(
+            tokenService =>
+                tokenService.GenerateAccessToken(
+                    user,
+                    It.IsAny<DateTime>()),
             Times.Once);
     }
 

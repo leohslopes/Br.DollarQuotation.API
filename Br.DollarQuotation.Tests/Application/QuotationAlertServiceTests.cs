@@ -7,7 +7,7 @@ using Br.DollarQuotation.Domain.Interfaces.Repositories;
 using Br.DollarQuotation.Domain.ValueObjects;
 using Moq;
 
-namespace Br.DollarQuotation.Tests.Application.Services;
+namespace Br.DollarQuotation.Tests.Application;
 
 public sealed class QuotationAlertServiceTests
 {

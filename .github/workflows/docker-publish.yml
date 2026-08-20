@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +17,8 @@ jobs:
   publish:
     name: Publish API and Worker
     runs-on: ubuntu-latest
+
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -28,15 +34,52 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # =========================================================
+      # API - METADATA
+      # =========================================================
+
+      - name: Extract API metadata
+        id: api-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/br-dollarquotation-api
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=ref,event=tag
+
+      # =========================================================
+      # API - BUILD / PUSH
+      # =========================================================
+
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.api
           push: true
+          tags: ${{ steps.api-meta.outputs.tags }}
+          labels: ${{ steps.api-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # =========================================================
+      # WORKER - METADATA
+      # =========================================================
+
+      - name: Extract Worker metadata
+        id: worker-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/br-dollarquotation-worker
           tags: |
-            ghcr.io/${{ github.repository_owner }}/br-dollarquotation-api:latest
-            ghcr.io/${{ github.repository_owner }}/br-dollarquotation-api:${{ github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=ref,event=tag
+
+      # =========================================================
+      # WORKER - BUILD / PUSH
+      # =========================================================
 
       - name: Build and push Worker image
         uses: docker/build-push-action@v6
@@ -44,6 +87,7 @@ jobs:
           context: .
           file: ./Dockerfile.worker
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/br-dollarquotation-worker:latest
-            ghcr.io/${{ github.repository_owner }}/br-dollarquotation-worker:${{ github.sha }}
+          tags: ${{ steps.worker-meta.outputs.tags }}
+          labels: ${{ steps.worker-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

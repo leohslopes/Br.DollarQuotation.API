@@ -1,18 +1,18 @@
 # ============================================================
 # STAGE 1 - BUILD
 # ============================================================
+
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
 WORKDIR /src
 
-# Copia toda a solução
 COPY . .
 
-# Restaura as dependências da API
-RUN dotnet restore ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj
+RUN dotnet restore \
+    ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj
 
-# Publica a aplicação
-RUN dotnet publish ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj \
+RUN dotnet publish \
+    ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -21,33 +21,57 @@ RUN dotnet publish ./Br.DollarQuotation.API/Br.DollarQuotation.API.csproj \
 # ============================================================
 # STAGE 2 - RUNTIME
 # ============================================================
+
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 
 USER root
 
-# Instala certificados e wget.
-# O wget é utilizado pelo healthcheck definido no docker-compose.
+# ============================================================
+# DEPENDÊNCIAS DO CONTAINER
+# ============================================================
+
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && apt-get install -y \
+        --no-install-recommends \
+        ca-certificates \
+        wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Adiciona o certificado raiz do Avast.
-# Necessário no ambiente local quando o Avast realiza inspeção SSL/TLS.
+# ============================================================
+# CERTIFICADO LOCAL - AVAST
+# ============================================================
+#
+# Necessário no ambiente local quando
+# existe inspeção SSL/TLS pelo Avast.
+#
+
 COPY ./certs/avast-root.crt \
     /usr/local/share/ca-certificates/avast-root.crt
 
-# Atualiza os certificados confiáveis do container
 RUN update-ca-certificates
+
+# ============================================================
+# APLICAÇÃO
+# ============================================================
 
 WORKDIR /app
 
-# Copia os arquivos publicados
-COPY --from=build /app/publish .
+COPY --from=build \
+    /app/publish \
+    .
 
-# API escuta na porta 8080 dentro do container
+# ============================================================
+# ASP.NET CORE
+# ============================================================
+
 ENV ASPNETCORE_URLS=http://+:8080
+
+ENV DOTNET_RUNNING_IN_CONTAINER=true
 
 EXPOSE 8080
 
-# Inicializa a API
+# ============================================================
+# INICIALIZAÇÃO
+# ============================================================
+
 ENTRYPOINT ["dotnet", "Br.DollarQuotation.API.dll"]

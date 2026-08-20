@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 
-namespace Br.DollarQuotation.Tests.API.Services;
+namespace Br.DollarQuotation.Tests.API;
 
 public sealed class QuotationUpdatedConsumerWorkerTests
 {
@@ -1217,7 +1217,7 @@ public sealed class QuotationUpdatedConsumerWorkerTests
     }
 
     // =========================================================
-    // CONSUMER
+    // CONSUMER / RESILIÊNCIA
     // =========================================================
 
     [Fact]
@@ -1230,10 +1230,17 @@ public sealed class QuotationUpdatedConsumerWorkerTests
             Task>? capturedHandler =
             null;
 
+        var consumeStarted =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
         _messageConsumerMock
             .Setup(
                 consumer =>
-                    consumer.ConsumeAsync<QuotationUpdatedMessage>(
+                    consumer.ConsumeAsync(
                         QueueName,
                         RoutingKey,
                         It.IsAny<
@@ -1258,9 +1265,25 @@ public sealed class QuotationUpdatedConsumerWorkerTests
                 {
                     capturedHandler =
                         handler;
+
+                    consumeStarted
+                        .TrySetResult(
+                            true);
                 })
             .Returns(
-                Task.CompletedTask);
+                async (
+                    string _,
+                    string _,
+                    Func<
+                        QuotationUpdatedMessage,
+                        CancellationToken,
+                        Task> _,
+                    CancellationToken cancellationToken) =>
+                {
+                    await Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken);
+                });
 
         using var provider =
             CreateServiceProvider();
@@ -1272,7 +1295,11 @@ public sealed class QuotationUpdatedConsumerWorkerTests
 
         // Act
         await worker.StartAsync(
-            CancellationToken.None);
+            cancellationTokenSource.Token);
+
+        await consumeStarted.Task
+            .WaitAsync(
+                TimeSpan.FromSeconds(2));
 
         // Assert
         Assert.NotNull(
@@ -1280,7 +1307,7 @@ public sealed class QuotationUpdatedConsumerWorkerTests
 
         _messageConsumerMock.Verify(
             consumer =>
-                consumer.ConsumeAsync<QuotationUpdatedMessage>(
+                consumer.ConsumeAsync(
                     QueueName,
                     RoutingKey,
                     It.IsAny<
@@ -1290,6 +1317,174 @@ public sealed class QuotationUpdatedConsumerWorkerTests
                             Task>>(),
                     It.IsAny<CancellationToken>()),
             Times.Once);
+
+        cancellationTokenSource.Cancel();
+
+        await worker.StopAsync(
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenConsumerFails_ShouldRetryWithoutStoppingWorker()
+    {
+        // Arrange
+        var attempts =
+            0;
+
+        var secondAttemptStarted =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
+        _messageConsumerMock
+            .Setup(
+                consumer =>
+                    consumer.ConsumeAsync(
+                        QueueName,
+                        RoutingKey,
+                        It.IsAny<
+                            Func<
+                                QuotationUpdatedMessage,
+                                CancellationToken,
+                                Task>>(),
+                        It.IsAny<CancellationToken>()))
+            .Returns(
+                async (
+                    string _,
+                    string _,
+                    Func<
+                        QuotationUpdatedMessage,
+                        CancellationToken,
+                        Task> _,
+                    CancellationToken cancellationToken) =>
+                {
+                    attempts++;
+
+                    if (attempts == 1)
+                    {
+                        throw new InvalidOperationException(
+                            "RabbitMQ indisponível.");
+                    }
+
+                    secondAttemptStarted
+                        .TrySetResult(
+                            true);
+
+                    await Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken);
+                });
+
+        using var provider =
+            CreateServiceProvider();
+
+        var worker =
+            CreateWorker(
+                provider.GetRequiredService<
+                    IServiceScopeFactory>());
+
+        // Act
+        await worker.StartAsync(
+            cancellationTokenSource.Token);
+
+        await secondAttemptStarted.Task
+            .WaitAsync(
+                TimeSpan.FromSeconds(5));
+
+        // Assert
+        Assert.True(
+            attempts >= 2);
+
+        _messageConsumerMock.Verify(
+            consumer =>
+                consumer.ConsumeAsync(
+                    QueueName,
+                    RoutingKey,
+                    It.IsAny<
+                        Func<
+                            QuotationUpdatedMessage,
+                            CancellationToken,
+                            Task>>(),
+                    It.IsAny<CancellationToken>()),
+            Times.AtLeast(2));
+
+        cancellationTokenSource.Cancel();
+
+        await worker.StopAsync(
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task StopAsync_WhenConsumerIsRunning_ShouldStopGracefully()
+    {
+        // Arrange
+        var consumeStarted =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
+        _messageConsumerMock
+            .Setup(
+                consumer =>
+                    consumer.ConsumeAsync(
+                        QueueName,
+                        RoutingKey,
+                        It.IsAny<
+                            Func<
+                                QuotationUpdatedMessage,
+                                CancellationToken,
+                                Task>>(),
+                        It.IsAny<CancellationToken>()))
+            .Returns(
+                async (
+                    string _,
+                    string _,
+                    Func<
+                        QuotationUpdatedMessage,
+                        CancellationToken,
+                        Task> _,
+                    CancellationToken cancellationToken) =>
+                {
+                    consumeStarted
+                        .TrySetResult(
+                            true);
+
+                    await Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken);
+                });
+
+        using var provider =
+            CreateServiceProvider();
+
+        var worker =
+            CreateWorker(
+                provider.GetRequiredService<
+                    IServiceScopeFactory>());
+
+        await worker.StartAsync(
+            cancellationTokenSource.Token);
+
+        await consumeStarted.Task
+            .WaitAsync(
+                TimeSpan.FromSeconds(2));
+
+        // Act
+        cancellationTokenSource.Cancel();
+
+        var exception =
+            await Record.ExceptionAsync(
+                () =>
+                    worker.StopAsync(
+                        CancellationToken.None));
+
+        // Assert
+        Assert.Null(
+            exception);
     }
 
     // =========================================================
@@ -1330,7 +1525,7 @@ public sealed class QuotationUpdatedConsumerWorkerTests
 
         _messageConsumerMock.Verify(
             consumer =>
-                consumer.ConsumeAsync<QuotationUpdatedMessage>(
+                consumer.ConsumeAsync(
                     It.IsAny<string>(),
                     It.IsAny<string>(),
                     It.IsAny<
@@ -1376,7 +1571,7 @@ public sealed class QuotationUpdatedConsumerWorkerTests
 
         _messageConsumerMock.Verify(
             consumer =>
-                consumer.ConsumeAsync<QuotationUpdatedMessage>(
+                consumer.ConsumeAsync(
                     It.IsAny<string>(),
                     It.IsAny<string>(),
                     It.IsAny<
@@ -1405,10 +1600,17 @@ public sealed class QuotationUpdatedConsumerWorkerTests
             Task>? capturedHandler =
             null;
 
+        var consumeStarted =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
         _messageConsumerMock
             .Setup(
                 consumer =>
-                    consumer.ConsumeAsync<QuotationUpdatedMessage>(
+                    consumer.ConsumeAsync(
                         QueueName,
                         RoutingKey,
                         It.IsAny<
@@ -1433,9 +1635,25 @@ public sealed class QuotationUpdatedConsumerWorkerTests
                 {
                     capturedHandler =
                         handler;
+
+                    consumeStarted
+                        .TrySetResult(
+                            true);
                 })
             .Returns(
-                Task.CompletedTask);
+                async (
+                    string _,
+                    string _,
+                    Func<
+                        QuotationUpdatedMessage,
+                        CancellationToken,
+                        Task> _,
+                    CancellationToken cancellationToken) =>
+                {
+                    await Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken);
+                });
 
         var provider =
             CreateServiceProvider();
@@ -1446,10 +1664,19 @@ public sealed class QuotationUpdatedConsumerWorkerTests
                     IServiceScopeFactory>());
 
         await worker.StartAsync(
-            CancellationToken.None);
+            cancellationTokenSource.Token);
+
+        await consumeStarted.Task
+            .WaitAsync(
+                TimeSpan.FromSeconds(2));
 
         Assert.NotNull(
             capturedHandler);
+
+        cancellationTokenSource.Cancel();
+
+        await worker.StopAsync(
+            CancellationToken.None);
 
         return capturedHandler;
     }

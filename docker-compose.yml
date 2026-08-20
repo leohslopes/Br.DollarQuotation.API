@@ -3,6 +3,7 @@ services:
   # ============================================================
   # POSTGRESQL
   # ============================================================
+
   postgres:
     image: postgres:16
     container_name: dollarquotation-postgres
@@ -28,11 +29,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
 
   # ============================================================
   # RABBITMQ
   # ============================================================
+
   rabbitmq:
     image: rabbitmq:4-management
     container_name: dollarquotation-rabbitmq
@@ -60,23 +63,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
 
   # ============================================================
   # API
   # ============================================================
+
   api:
     image: ghcr.io/leohslopes/br-dollarquotation-api:latest
     container_name: dollarquotation-api
     restart: unless-stopped
 
     environment:
+
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
 
       # ----------------------------------------------------------
       # DATABASE
       # ----------------------------------------------------------
+
       ConnectionStrings__DefaultConnection: >
         Host=postgres;
         Port=5432;
@@ -87,6 +94,7 @@ services:
       # ----------------------------------------------------------
       # JWT
       # ----------------------------------------------------------
+
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       Jwt__Issuer: Br.DollarQuotation.API
       Jwt__Audience: Br.DollarQuotation.Web
@@ -95,6 +103,7 @@ services:
       # ----------------------------------------------------------
       # RABBITMQ
       # ----------------------------------------------------------
+
       RabbitMq__HostName: rabbitmq
       RabbitMq__Port: "5672"
       RabbitMq__UserName: ${RABBITMQ_USER}
@@ -107,6 +116,7 @@ services:
       # ----------------------------------------------------------
       # EMAIL
       # ----------------------------------------------------------
+
       Email__SmtpHost: smtp.gmail.com
       Email__SmtpPort: "587"
       Email__Username: naorespondercambiopurse@gmail.com
@@ -117,6 +127,7 @@ services:
       # ----------------------------------------------------------
       # PASSWORD RESET
       # ----------------------------------------------------------
+
       PasswordReset__FrontendResetPasswordUrl: http://localhost:4200/reset-password
       PasswordReset__TokenExpirationInMinutes: "30"
 
@@ -127,6 +138,7 @@ services:
       - dollarquotation_dataprotection_keys:/app/data-protection-keys
 
     depends_on:
+
       postgres:
         condition: service_healthy
 
@@ -142,23 +154,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
 
 
   # ============================================================
   # WORKER
   # ============================================================
+
   worker:
     image: ghcr.io/leohslopes/br-dollarquotation-worker:latest
     container_name: dollarquotation-worker
     restart: unless-stopped
 
     environment:
+
       DOTNET_ENVIRONMENT: Production
 
       # ----------------------------------------------------------
       # DATABASE
       # ----------------------------------------------------------
+
       ConnectionStrings__DefaultConnection: >
         Host=postgres;
         Port=5432;
@@ -169,6 +184,7 @@ services:
       # ----------------------------------------------------------
       # RABBITMQ
       # ----------------------------------------------------------
+
       RabbitMq__HostName: rabbitmq
       RabbitMq__Port: "5672"
       RabbitMq__UserName: ${RABBITMQ_USER}
@@ -179,6 +195,7 @@ services:
       RabbitMq__QuotationRoutingKey: quotation.updated
 
     depends_on:
+
       postgres:
         condition: service_healthy
 
@@ -189,6 +206,7 @@ services:
   # ============================================================
   # FRONTEND
   # ============================================================
+
   frontend:
     image: ghcr.io/leohslopes/br-dollarquotation-web:latest
     container_name: dollarquotation-web
@@ -198,6 +216,7 @@ services:
       - "4200:80"
 
     depends_on:
+
       api:
         condition: service_healthy
 
@@ -210,13 +229,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 10s
 
 
-# ==============================================================
+# ============================================================
 # VOLUMES
-# ==============================================================
+# ============================================================
+
 volumes:
+
   dollarquotation_postgres_data:
+
   dollarquotation_rabbitmq_data:
+
   dollarquotation_dataprotection_keys:

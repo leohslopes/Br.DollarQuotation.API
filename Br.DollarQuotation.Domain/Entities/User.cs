@@ -1,4 +1,5 @@
 ﻿using Br.DollarQuotation.Domain.Common;
+using Br.DollarQuotation.Domain.Enums;
 using Br.DollarQuotation.Domain.Exceptions;
 using Br.DollarQuotation.Domain.ValueObjects;
 
@@ -27,13 +28,15 @@ public class User : Entity
 
     public string? PhotoContentType { get; private set; }
 
+    public UserRole Role { get; private set; }
+
     public bool IsActive { get; private set; }
 
     public DateTime CreatedAt { get; private set; }
 
     public DateTime? UpdatedAt { get; private set; }
 
-    protected User()
+    private User()
     {
     }
 
@@ -42,11 +45,13 @@ public class User : Entity
         Email email,
         string passwordHash,
         string? photoBase64 = null,
-        string? photoContentType = null)
+        string? photoContentType = null,
+        UserRole role = UserRole.User)
     {
         SetName(name);
         SetEmail(email);
         SetPasswordHash(passwordHash);
+        SetRole(role);
 
         CreatedAt = DateTime.UtcNow;
         IsActive = true;
@@ -69,6 +74,12 @@ public class User : Entity
     public void UpdatePassword(string passwordHash)
     {
         SetPasswordHash(passwordHash);
+        SetUpdatedAt();
+    }
+
+    public void UpdateRole(UserRole role)
+    {
+        SetRole(role);
         SetUpdatedAt();
     }
 
@@ -101,7 +112,7 @@ public class User : Entity
 
         if (imageBytes.Length > MaxPhotoSizeInBytes)
         {
-            throw new DomainException( "A foto deve possuir no máximo 2 MB.");
+            throw new DomainException("A foto deve possuir no máximo 2 MB.");
         }
 
         PhotoBase64 = normalizedBase64;
@@ -146,7 +157,7 @@ public class User : Entity
     private void ConfigurePhoto(string? photoBase64, string? photoContentType)
     {
         var hasPhoto = !string.IsNullOrWhiteSpace(photoBase64);
-        var hasContentType =!string.IsNullOrWhiteSpace(photoContentType);
+        var hasContentType = !string.IsNullOrWhiteSpace(photoContentType);
 
         if (!hasPhoto && !hasContentType)
         {
@@ -160,7 +171,7 @@ public class User : Entity
 
         if (!hasContentType)
         {
-            throw new DomainException( "O tipo da imagem é obrigatório quando a foto é informada.");
+            throw new DomainException("O tipo da imagem é obrigatório quando a foto é informada.");
         }
 
         UpdatePhoto(photoBase64!, photoContentType!);
@@ -170,19 +181,19 @@ public class User : Entity
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new DomainException( "O nome é obrigatório.");
+            throw new DomainException("O nome é obrigatório.");
         }
 
         var normalizedName = name.Trim();
 
         if (normalizedName.Length < MinimumNameLength)
         {
-            throw new DomainException( $"O nome deve possuir no mínimo {MinimumNameLength} caracteres.");
+            throw new DomainException($"O nome deve possuir no mínimo {MinimumNameLength} caracteres.");
         }
 
         if (normalizedName.Length > MaximumNameLength)
         {
-            throw new DomainException( $"O nome deve possuir no máximo {MaximumNameLength} caracteres.");
+            throw new DomainException($"O nome deve possuir no máximo {MaximumNameLength} caracteres.");
         }
 
         Name = normalizedName;
@@ -200,7 +211,18 @@ public class User : Entity
             throw new DomainException("O hash da senha é obrigatório.");
         }
 
-        PasswordHash = passwordHash;
+        PasswordHash =
+            passwordHash;
+    }
+
+    private void SetRole(UserRole role)
+    {
+        if (!Enum.IsDefined(role))
+        {
+            throw new DomainException("O perfil do usuário é inválido.");
+        }
+
+        Role = role;
     }
 
     private static void ValidatePhotoContentType(string photoContentType)
@@ -224,9 +246,9 @@ public class User : Entity
 
         var commaIndex = normalizedBase64.IndexOf(',');
 
-        if ( normalizedBase64.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && commaIndex >= 0)
+        if (normalizedBase64.StartsWith( "data:",StringComparison.OrdinalIgnoreCase) && commaIndex >= 0)
         {
-            normalizedBase64 = normalizedBase64[(commaIndex + 1)..];
+            normalizedBase64 =normalizedBase64[(commaIndex + 1)..];
         }
 
         try
@@ -235,7 +257,8 @@ public class User : Entity
         }
         catch (FormatException)
         {
-            throw new DomainException("O conteúdo da foto não possui um Base64 válido.");
+            throw new DomainException(
+                "O conteúdo da foto não possui um Base64 válido.");
         }
 
         return normalizedBase64;

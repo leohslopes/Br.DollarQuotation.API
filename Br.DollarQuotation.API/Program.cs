@@ -13,6 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -237,7 +238,13 @@ builder.Services
                         true,
 
                     ClockSkew =
-                        TimeSpan.Zero
+                        TimeSpan.Zero,
+
+                    NameClaimType =
+                        ClaimTypes.Name,
+
+                    RoleClaimType =
+                        ClaimTypes.Role
                 };
 
             // Permite que o SignalR receba

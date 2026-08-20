@@ -13,8 +13,7 @@ public sealed class JwtTokenService : ITokenService
 {
     private readonly JwtOptions _options;
 
-    public JwtTokenService(
-        IOptions<JwtOptions> options)
+    public JwtTokenService(IOptions<JwtOptions> options)
     {
         _options = options.Value;
 
@@ -31,21 +30,19 @@ public sealed class JwtTokenService : ITokenService
         }
 
         var claims = CreateClaims(user);
-
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
-
         var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(claims),
-            Issuer = _options.Issuer,
-            Audience = _options.Audience,
-            IssuedAt = DateTime.UtcNow,
-            NotBefore = DateTime.UtcNow,
-            Expires = expiresAt,
-            SigningCredentials = signingCredentials
-        };
+        var tokenDescriptor =
+            new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Issuer = _options.Issuer,
+                Audience = _options.Audience,
+                IssuedAt = DateTime.UtcNow,
+                NotBefore = DateTime.UtcNow,
+                Expires = expiresAt,
+                SigningCredentials =signingCredentials
+            };
 
         var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -58,33 +55,14 @@ public sealed class JwtTokenService : ITokenService
     {
         return
         [
-            new Claim(
-                JwtRegisteredClaimNames.Sub,
-                user.Id.ToString()),
-
-            new Claim(
-                ClaimTypes.NameIdentifier,
-                user.Id.ToString()),
-
-            new Claim(
-                ClaimTypes.Name,
-                user.Name),
-
-            new Claim(
-                JwtRegisteredClaimNames.Name,
-                user.Name),
-
-            new Claim(
-                JwtRegisteredClaimNames.Email,
-                user.Email.Value),
-
-            new Claim(
-                ClaimTypes.Email,
-                user.Email.Value),
-
-            new Claim(
-                JwtRegisteredClaimNames.Jti,
-                Guid.NewGuid().ToString())
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Name),
+            new Claim(JwtRegisteredClaimNames.Name, user.Name),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email.Value),
+            new Claim(ClaimTypes.Email, user.Email.Value),
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         ];
     }
 

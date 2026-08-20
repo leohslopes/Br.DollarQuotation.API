@@ -16,6 +16,8 @@ namespace Br.DollarQuotation.Application.DTOs.Requests
 
         public string ConfirmPassword { get; set; } = string.Empty;
 
+        public string Role { get; set; } = "User";
+
         public string? PhotoBase64 { get; set; }
 
         public string? PhotoContentType { get; set; }

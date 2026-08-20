@@ -12,6 +12,8 @@ public sealed class LoginResponse
 
     public string? PhotoContentType { get; set; }
 
+    public string Role { get; set; } = string.Empty;
+
     public string AccessToken { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }

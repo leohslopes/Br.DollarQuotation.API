@@ -9,7 +9,7 @@ using Br.DollarQuotation.Domain.Models;
 using Br.DollarQuotation.Domain.ValueObjects;
 using Moq;
 
-namespace Br.DollarQuotation.Tests.Application.Services;
+namespace Br.DollarQuotation.Tests.Application;
 
 public sealed class CurrencyQuotationServiceTests
 {

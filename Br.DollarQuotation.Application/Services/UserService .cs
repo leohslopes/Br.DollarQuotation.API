@@ -2,11 +2,11 @@
 using Br.DollarQuotation.Application.DTOs.Responses;
 using Br.DollarQuotation.Application.Interfaces.Services;
 using Br.DollarQuotation.Domain.Entities;
+using Br.DollarQuotation.Domain.Enums;
 using Br.DollarQuotation.Domain.Exceptions;
 using Br.DollarQuotation.Domain.Interfaces.Repositories;
 using Br.DollarQuotation.Domain.Interfaces.Services;
 using Br.DollarQuotation.Domain.ValueObjects;
-
 
 namespace Br.DollarQuotation.Application.Services
 {
@@ -19,7 +19,7 @@ namespace Br.DollarQuotation.Application.Services
         private readonly IPasswordHasher _passwordHasher;
 
         public UserService(IUserRepository userRepository,
-                           IPasswordHasher passwordHasher)
+            IPasswordHasher passwordHasher)
         {
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
@@ -34,14 +34,20 @@ namespace Br.DollarQuotation.Application.Services
             var emailAlreadyExists = await _userRepository.EmailExistsAsync(email, cancellationToken);
 
             if (emailAlreadyExists)
+            {
                 throw new EmailAlreadyRegisteredException(email.Value);
+            }
 
+            var role = ParseRole(request.Role);
             var passwordHash = _passwordHasher.Hash(request.Password);
-            var user = new User(name: request.Name,
-                email: email,
-                passwordHash: passwordHash,
-                photoBase64: request.PhotoBase64,
-                photoContentType: request.PhotoContentType);
+            var user = new User(
+                    name: request.Name,
+                    email: email,
+                    passwordHash: passwordHash,
+                    photoBase64: request.PhotoBase64,
+                    photoContentType: request.PhotoContentType);
+
+            user.UpdateRole(role);
 
             await _userRepository.AddAsync(user, cancellationToken);
 
@@ -57,19 +63,14 @@ namespace Br.DollarQuotation.Application.Services
 
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
 
-            if (user is null)
-            {
-                throw new UserNotFoundException(id);
-            }
-
-            return MapToUserResponse(user);
+            return user is null ? throw new UserNotFoundException(id) : MapToUserResponse(user);
         }
 
         public async Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken = default)
         {
             if (id == Guid.Empty)
             {
-                throw new DomainException( "O identificador do usuário é obrigatório.");
+                throw new DomainException("O identificador do usuário é obrigatório.");
             }
 
             if (request is null)
@@ -77,12 +78,7 @@ namespace Br.DollarQuotation.Application.Services
                 throw new DomainException("Os dados do usuário são obrigatórios.");
             }
 
-            var user = await _userRepository.GetByIdAsync(id, cancellationToken);
-
-            if (user is null)
-            {
-                throw new UserNotFoundException(id);
-            }
+            var user = await _userRepository.GetByIdAsync(id, cancellationToken) ?? throw new UserNotFoundException(id);
 
             var email = Email.Create(request.Email);
 
@@ -96,8 +92,13 @@ namespace Br.DollarQuotation.Application.Services
                 }
             }
 
+            var role = ParseRole(request.Role);
+
+            await ValidateLastActiveAdminRoleChangeAsync(user, role, cancellationToken);
+
             user.UpdateName(request.Name);
             user.UpdateEmail(email);
+            user.UpdateRole(role);
 
             await _userRepository.UpdateAsync(user, cancellationToken);
 
@@ -140,6 +141,8 @@ namespace Br.DollarQuotation.Application.Services
         {
             var user = await GetUserAsync(id, cancellationToken);
 
+            await ValidateLastActiveAdminDeactivationAsync(user,cancellationToken);
+
             user.Deactivate();
 
             await _userRepository.UpdateAsync(user, cancellationToken);
@@ -154,7 +157,7 @@ namespace Br.DollarQuotation.Application.Services
                 throw new DomainException("A página deve ser maior que zero.");
             }
 
-            if (pageSize <= 0 || pageSize > 100)
+            if (pageSize <= 0 ||  pageSize > 100)
             {
                 throw new DomainException("O tamanho da página deve estar entre 1 e 100.");
             }
@@ -172,11 +175,41 @@ namespace Br.DollarQuotation.Application.Services
             };
         }
 
+        private async Task ValidateLastActiveAdminRoleChangeAsync(User user, UserRole newRole, CancellationToken cancellationToken)
+        {
+            if (user.Role != UserRole.Admin || !user.IsActive || newRole == UserRole.Admin)
+            {
+                return;
+            }
+
+            var activeAdmins = await _userRepository.CountActiveAdminsAsync(cancellationToken);
+
+            if (activeAdmins <= 1)
+            {
+                throw new DomainException("Não é possível alterar o perfil do último administrador ativo do sistema.");
+            }
+        }
+
+        private async Task ValidateLastActiveAdminDeactivationAsync(User user, CancellationToken cancellationToken)
+        {
+            if (user.Role != UserRole.Admin || !user.IsActive)
+            {
+                return;
+            }
+
+            var activeAdmins = await _userRepository.CountActiveAdminsAsync(cancellationToken);
+
+            if (activeAdmins <= 1)
+            {
+                throw new DomainException( "Não é possível desativar o último administrador ativo do sistema.");
+            }
+        }
+
         private async Task<User> GetUserAsync(Guid id, CancellationToken cancellationToken)
         {
             if (id == Guid.Empty)
             {
-                throw new DomainException("O identificador do usuário é obrigatório.");
+                throw new DomainException( "O identificador do usuário é obrigatório.");
             }
 
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
@@ -187,24 +220,39 @@ namespace Br.DollarQuotation.Application.Services
         private static void ValidateRequest(RegisterUserRequest request)
         {
             if (request is null)
+            {
                 throw new DomainException("Os dados do usuário são obrigatórios.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.Name))
-                throw new DomainException("O nome do usuário é obrigatório.");
+            {
+                throw new DomainException( "O nome do usuário é obrigatório.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.Email))
+            {
                 throw new DomainException("O e-mail é obrigatório.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.Password))
+            {
                 throw new DomainException("A senha é obrigatória.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.ConfirmPassword))
-                throw new DomainException("A confirmação da senha é obrigatória.");
+            {
+                throw new DomainException( "A confirmação da senha é obrigatória.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Role))
+            {
+                throw new DomainException("O perfil de acesso é obrigatório.");
+            }
 
             ValidatePhoto(request.PhotoBase64, request.PhotoContentType);
         }
 
-        private static void ValidatePassword(string password, string confirmPassword)
+        private static void ValidatePassword(string password,string confirmPassword)
         {
             if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
             {
@@ -213,12 +261,12 @@ namespace Br.DollarQuotation.Application.Services
 
             if (password.Length < MinimumPasswordLength)
             {
-                throw new DomainException($"A senha deve possuir no mínimo " + $"{MinimumPasswordLength} caracteres.");
+                throw new DomainException($"A senha deve possuir no mínimo {MinimumPasswordLength} caracteres.");
             }
 
             if (password.Length > MaximumPasswordLength)
             {
-                throw new DomainException($"A senha deve possuir no máximo " + $"{MaximumPasswordLength} caracteres.");
+                throw new DomainException($"A senha deve possuir no máximo {MaximumPasswordLength} caracteres.");
             }
 
             if (!password.Any(char.IsUpper))
@@ -236,8 +284,7 @@ namespace Br.DollarQuotation.Application.Services
                 throw new DomainException("A senha deve possuir pelo menos um número.");
             }
 
-            if (!password.Any(character =>
-                    !char.IsLetterOrDigit(character)))
+            if (!password.Any(character => !char.IsLetterOrDigit(character)))
             {
                 throw new DomainException("A senha deve possuir pelo menos um caractere especial.");
             }
@@ -246,8 +293,7 @@ namespace Br.DollarQuotation.Application.Services
         private static void ValidatePhoto(string? photoBase64, string? photoContentType)
         {
             var hasPhoto = !string.IsNullOrWhiteSpace(photoBase64);
-            var hasContentType =
-                !string.IsNullOrWhiteSpace(photoContentType);
+            var hasContentType = !string.IsNullOrWhiteSpace(photoContentType);
 
             if (hasPhoto && !hasContentType)
             {
@@ -256,8 +302,18 @@ namespace Br.DollarQuotation.Application.Services
 
             if (!hasPhoto && hasContentType)
             {
-                throw new DomainException("A foto deve ser informada junto com o tipo do arquivo.");
+                throw new DomainException( "A foto deve ser informada junto com o tipo do arquivo.");
             }
+        }
+
+        private static UserRole ParseRole(string role)
+        {
+            if (string.IsNullOrWhiteSpace(role) || !Enum.TryParse<UserRole>(role, true, out var parsedRole) || !Enum.IsDefined( parsedRole))
+            {
+                throw new DomainException( "Perfil de acesso inválido. Utilize User ou Admin.");
+            }
+
+            return parsedRole;
         }
 
         private static RegisterUserResponse MapToResponse(User user)
@@ -267,6 +323,7 @@ namespace Br.DollarQuotation.Application.Services
                 Id = user.Id,
                 Name = user.Name,
                 Email = user.Email.Value,
+                Role = user.Role.ToString(),
                 PhotoBase64 = user.PhotoBase64,
                 PhotoContentType = user.PhotoContentType,
                 IsActive = user.IsActive,
@@ -281,6 +338,7 @@ namespace Br.DollarQuotation.Application.Services
                 Id = user.Id,
                 Name = user.Name,
                 Email = user.Email.Value,
+                Role = user.Role.ToString(),
                 PhotoBase64 = user.PhotoBase64,
                 PhotoContentType = user.PhotoContentType,
                 IsActive = user.IsActive,
